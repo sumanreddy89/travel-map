@@ -1,0 +1,45 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { ANTHROPIC_API_KEY } from "../config.js";
+import type { Stop } from "../types.js";
+
+const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+
+export async function generateNarration(tripTitle: string, stop: Stop): Promise<string> {
+  const prompt = `You are writing the voiceover script for one stop in a short travel montage video titled "${tripTitle}".
+Stop: ${stop.name}${stop.date ? ` (${stop.date})` : ""}
+Traveler's notes: ${stop.notes?.trim() || "(none provided)"}
+
+Write 2-3 short sentences of warm, vivid travel-documentary narration for this stop, in the style of a travel show host. Plain prose only, no markdown, no quotation marks, no stage directions.`;
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 200,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join(" ")
+    .trim();
+
+  return text;
+}
+
+export async function generateClosingNarration(tripTitle: string, countryName: string): Promise<string> {
+  const prompt = `You are writing the closing voiceover line for a short travel montage video titled "${tripTitle}", right as it wraps up the ${countryName} leg of the trip (there may be more countries after this, or this may be the end of the whole video).
+
+Write ONE warm, short sentence (or two very short ones) in the style of a travel show host bidding farewell to ${countryName} - wistful but not sad, more "see you again" than "goodbye". For tone, something like: "This wasn't a goodbye, ${countryName} - just a see-you-again. Thanks for having me." is the kind of feeling to hit, but write your own line, don't reuse that one verbatim. Plain prose only, no markdown, no quotation marks, no stage directions.`;
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 120,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  return message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join(" ")
+    .trim();
+}

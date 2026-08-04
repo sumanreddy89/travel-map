@@ -1,0 +1,71 @@
+import { ensureCountryAssets, findCountryForPoint, type CountryAssets } from "./geo.js";
+import { fetchRoute } from "./routing.js";
+import { generateClosingNarration } from "./narration.js";
+import type { MapScene, RouteLeg, Stop } from "../types.js";
+
+function toPoint(stop: Stop) {
+  return { id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng };
+}
+
+export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<MapScene[]> {
+  const scenes: MapScene[] = [];
+
+  // Accumulates completed legs for the country currently being visited, so
+  // later scenes in the same country can show the whole route travelled so
+  // far, not just the leg in progress. Resets whenever the destination's
+  // country changes (including leaving and later re-entering one) - at
+  // which point a closure recap scene is inserted for the country just left.
+  let streak: RouteLeg[] = [];
+  let streakCountryIso: string | undefined;
+  let streakCountry: CountryAssets | undefined;
+  let prevStop: Stop | undefined;
+
+  async function closeStreakIfAny() {
+    if (streak.length === 0 || !streakCountry) return;
+    const narration = await generateClosingNarration(tripTitle, streakCountry.name);
+    scenes.push({
+      toStop: streak[streak.length - 1].to,
+      country: streakCountry,
+      priorLegs: [...streak],
+      closure: { narration },
+    });
+  }
+
+  for (let i = 0; i < stops.length; i++) {
+    const toStop = stops[i];
+
+    const countryFeature = await findCountryForPoint(toStop.lat, toStop.lng);
+    if (!countryFeature) {
+      prevStop = toStop;
+      continue; // e.g. a point over open ocean - skip the map scene, keep StopContent
+    }
+
+    const country = await ensureCountryAssets(countryFeature);
+    if (country.iso !== streakCountryIso) {
+      await closeStreakIfAny();
+      streak = [];
+      streakCountryIso = country.iso;
+    }
+    streakCountry = country;
+
+    let currentLeg: RouteLeg | undefined;
+    if (prevStop) {
+      const routeCoords = await fetchRoute(prevStop, toStop);
+      currentLeg = { from: toPoint(prevStop), to: toPoint(toStop), routeCoords };
+    }
+
+    scenes.push({
+      toStop: toPoint(toStop),
+      country,
+      currentLeg,
+      priorLegs: [...streak],
+    });
+
+    if (currentLeg) streak.push(currentLeg);
+    prevStop = toStop;
+  }
+
+  await closeStreakIfAny(); // the trip ended - close out the final country visit too
+
+  return scenes;
+}

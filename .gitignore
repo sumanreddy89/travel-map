@@ -1,0 +1,16 @@
+node_modules/
+data/
+.env
+*.log
+dist/
+out/
+.DS_Store
+
+# Cached/derived cartography assets - regenerated from data/geo-raw via
+# server/src/scripts/convertGeo.ts and services/geo.ts on demand. Large
+# (70MB+) and not source, so keep them out of the repo.
+remotion/public/geo/
+remotion/public/terrain/
+# Symlink to ../../data created automatically at render time - points to a
+# local absolute path, never something to commit.
+remotion/public/data
