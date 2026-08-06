@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { api } from "../api";
+import { useConfirm } from "./ConfirmDialog";
 import type { Stop } from "../types";
 
 type Props = {
@@ -12,6 +13,10 @@ type Props = {
   onMove: (direction: -1 | 1) => void;
 };
 
+function truncate(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max).trimEnd() + "…" : text;
+}
+
 export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMove }: Props) {
   const [editing, setEditing] = useState(false);
   const [date, setDate] = useState(stop.date ?? "");
@@ -19,10 +24,24 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [narrationDraft, setNarrationDraft] = useState(stop.narration ?? "");
+  const [narrationBusy, setNarrationBusy] = useState(false);
+  const narrationDirty = narrationDraft !== (stop.narration ?? "");
+  const confirm = useConfirm();
+
+  async function handleDelete() {
+    const ok = await confirm({
+      title: "Remove stop",
+      message: `Remove "${stop.name}" and its ${stop.media.length} photo${stop.media.length === 1 ? "" : "s"}/video${stop.media.length === 1 ? "" : "s"}? This can't be undone.`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (ok) onDelete();
+  }
+
   async function saveEdits() {
     const updated = await api.updateStop(tripId, stop.id, { date, notes });
     onChange(updated);
-    setEditing(false);
   }
 
   async function handleFiles(files: FileList | null) {
@@ -42,14 +61,35 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
     onChange({ ...stop, media: stop.media.filter((m) => m.id !== mediaId) });
   }
 
+  async function generateNarration() {
+    setNarrationBusy(true);
+    try {
+      const updated = await api.generateStopNarration(tripId, stop.id);
+      setNarrationDraft(updated.narration ?? "");
+      onChange(updated);
+    } finally {
+      setNarrationBusy(false);
+    }
+  }
+
+  async function saveNarration() {
+    setNarrationBusy(true);
+    try {
+      const updated = await api.updateStop(tripId, stop.id, { narration: narrationDraft });
+      onChange(updated);
+    } finally {
+      setNarrationBusy(false);
+    }
+  }
+
   return (
     <div className="card stop-card">
       <div className="stop-header">
         <div className="stop-order">
-          <button disabled={index === 0} onClick={() => onMove(-1)}>
+          <button disabled={index === 0} onClick={() => onMove(-1)} aria-label="Move up">
             ↑
           </button>
-          <button disabled={index === count - 1} onClick={() => onMove(1)}>
+          <button disabled={index === count - 1} onClick={() => onMove(1)} aria-label="Move down">
             ↓
           </button>
         </div>
@@ -59,11 +99,15 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
           </strong>
           {stop.date && <span className="muted"> — {stop.date}</span>}
         </div>
-        <button onClick={() => setEditing((v) => !v)}>{editing ? "Close" : "Edit"}</button>
-        <button className="danger" onClick={onDelete}>
+        <button onClick={() => setEditing((v) => !v)}>{editing ? "Done" : "Edit"}</button>
+        <button className="danger" onClick={handleDelete}>
           Remove
         </button>
       </div>
+
+      {!editing && (stop.notes || stop.narration) && (
+        <p className="muted stop-preview">{stop.notes || truncate(stop.narration ?? "", 140)}</p>
+      )}
 
       {editing && (
         <div className="stop-edit">
@@ -74,12 +118,40 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
             onChange={(e) => setNotes(e.target.value)}
           />
           <button className="primary" onClick={saveEdits}>
-            Save
+            Save details
           </button>
+
+          <div className="narration-block">
+            <div className="narration-label">
+              Narration
+              {stop.audioPath && !narrationDirty && <span className="muted"> · voiceover recorded</span>}
+              {narrationDirty && <span className="muted"> · unsaved edit, will re-record voiceover</span>}
+            </div>
+            {stop.narration || narrationDraft ? (
+              <>
+                <textarea
+                  className="narration-text"
+                  value={narrationDraft}
+                  placeholder="AI-written narration for this stop"
+                  onChange={(e) => setNarrationDraft(e.target.value)}
+                />
+                <div className="row">
+                  <button onClick={generateNarration} disabled={narrationBusy}>
+                    {narrationBusy ? "Working..." : "Regenerate with AI"}
+                  </button>
+                  <button className="primary" onClick={saveNarration} disabled={narrationBusy || !narrationDirty}>
+                    Save narration
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button onClick={generateNarration} disabled={narrationBusy}>
+                {narrationBusy ? "Writing..." : "Generate narration with AI"}
+              </button>
+            )}
+          </div>
         </div>
       )}
-
-      {stop.notes && !editing && <p className="muted">{stop.notes}</p>}
 
       <div className="media-grid">
         {stop.media.map((m) => (
@@ -95,7 +167,7 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
           </div>
         ))}
         <label className="media-add">
-          {uploading ? "..." : "+ Add photo/video"}
+          {uploading ? "..." : "+ Add"}
           <input
             ref={fileRef}
             type="file"
