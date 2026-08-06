@@ -21,13 +21,23 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
   let prevStop: Stop | undefined;
 
   async function closeStreakIfAny() {
-    if (streak.length === 0 || !streakCountry) return;
-    const narration = await generateClosingNarration(tripTitle, streakCountry.name);
+    if (streak.length === 0 || !streakCountry || !prevStop) return;
+    // prevStop is always the Stop object matching streak's last leg's `to` -
+    // cache the closure line on it so re-rendering the same trip doesn't
+    // re-roll a fresh Claude + TTS call (and its failure risk) every time.
+    const lastStop = prevStop;
+    if (!lastStop.closureNarration) {
+      lastStop.closureNarration = await generateClosingNarration(tripTitle, streakCountry.name);
+    }
     scenes.push({
       toStop: streak[streak.length - 1].to,
       country: streakCountry,
       priorLegs: [...streak],
-      closure: { narration },
+      closure: {
+        narration: lastStop.closureNarration,
+        audioPath: lastStop.closureAudioPath,
+        audioDurationSec: lastStop.closureAudioDurationSec,
+      },
     });
   }
 
