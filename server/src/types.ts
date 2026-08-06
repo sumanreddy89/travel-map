@@ -16,7 +16,16 @@ export type Stop = {
   narration?: string;
   audioPath?: string; // relative to DATA_DIR
   audioDurationSec?: number;
+  // Set only on whichever stop ends up being the last one in a country visit -
+  // caches that visit's closure recap line the same way narration/audioPath
+  // above cache this stop's own line, so it isn't regenerated (and re-rolled
+  // against a fresh TTS call) on every single render.
+  closureNarration?: string;
+  closureAudioPath?: string; // relative to DATA_DIR
+  closureAudioDurationSec?: number;
 };
+
+export type Orientation = "landscape" | "portrait";
 
 export type Trip = {
   id: string;
@@ -25,6 +34,10 @@ export type Trip = {
   updatedAt: string;
   stops: Stop[];
   music?: { path: string; volume: number; durationSec?: number };
+  orientation?: Orientation; // defaults to "landscape" when unset
+  titleCardNarration?: string;
+  titleCardAudioPath?: string; // relative to DATA_DIR
+  titleCardAudioDurationSec?: number;
 };
 
 export type RenderJobState = "idle" | "narrating" | "voicing" | "mapping" | "rendering" | "done" | "error";
@@ -73,6 +86,7 @@ export type RenderJob = {
   message?: string;
   outputPath?: string; // relative to DATA_DIR
   error?: string;
+  warnings?: string[]; // non-fatal issues (e.g. a stop's voiceover failed) - the video still rendered
   startedAt: string;
   updatedAt: string;
 };

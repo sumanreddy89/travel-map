@@ -18,6 +18,8 @@ export type Stop = {
   audioDurationSec?: number;
 };
 
+export type Orientation = "landscape" | "portrait";
+
 export type Trip = {
   id: string;
   title: string;
@@ -25,6 +27,10 @@ export type Trip = {
   updatedAt: string;
   stops: Stop[];
   music?: { path: string; volume: number; durationSec?: number };
+  orientation?: Orientation; // defaults to "landscape" when unset
+  titleCardNarration?: string;
+  titleCardAudioPath?: string;
+  titleCardAudioDurationSec?: number;
 };
 
 export type RouteStopPoint = { id: string; name: string; lat: number; lng: number };
