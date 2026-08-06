@@ -2,14 +2,21 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { Trip } from "./types";
 import { TripEditor } from "./components/TripEditor";
+import { useConfirm } from "./components/ConfirmDialog";
 
 export default function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
+  const confirm = useConfirm();
 
   function refresh() {
-    api.listTrips().then(setTrips);
+    setLoading(true);
+    api
+      .listTrips()
+      .then(setTrips)
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -35,6 +42,19 @@ export default function App() {
     setSelected(trip.id);
   }
 
+  async function handleDelete(trip: Trip, e: React.MouseEvent) {
+    e.stopPropagation();
+    const ok = await confirm({
+      title: "Delete trip",
+      message: `Delete "${trip.title}"? This removes all its stops, photos/videos, and any generated video. This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    await api.deleteTrip(trip.id);
+    refresh();
+  }
+
   return (
     <div className="container">
       <h1>TravelMap</h1>
@@ -56,29 +76,27 @@ export default function App() {
       </div>
 
       <h3>Your trips</h3>
-      {trips.length === 0 && <p className="muted">No trips yet.</p>}
-      {trips.map((t) => (
-        <div key={t.id} className="card trip-row" style={{ display: "flex", alignItems: "center" }}>
-          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setSelected(t.id)}>
-            <strong>{t.title}</strong>
-            <span className="muted">
-              {" "}
-              — {t.stops.length} stop{t.stops.length === 1 ? "" : "s"}
-            </span>
-          </div>
-          <button
-            className="danger"
-            onClick={async (e) => {
-              e.stopPropagation();
-              if (!confirm(`Delete "${t.title}"? This can't be undone.`)) return;
-              await api.deleteTrip(t.id);
-              refresh();
-            }}
-          >
-            Delete
-          </button>
+      {loading && <p className="muted">Loading your trips...</p>}
+      {!loading && trips.length === 0 && (
+        <div className="empty-state">
+          <p className="muted">No trips yet — create one above to get started.</p>
         </div>
-      ))}
+      )}
+      {!loading &&
+        trips.map((t) => (
+          <div key={t.id} className="card trip-row" onClick={() => setSelected(t.id)}>
+            <div className="trip-row-info">
+              <strong>{t.title}</strong>
+              <span className="muted">
+                {" "}
+                — {t.stops.length} stop{t.stops.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <button className="danger" onClick={(e) => handleDelete(t, e)}>
+              Delete
+            </button>
+          </div>
+        ))}
     </div>
   );
 }
