@@ -11,6 +11,7 @@ const MAP_MAX_PRIOR_LEGS_COUNTED = 5;
 const STOP_MIN_SEC = 4.5;
 const STOP_PER_MEDIA_SEC = 3.5;
 const CLOSURE_MIN_SEC = 4.5;
+const TITLE_CARD_MIN_SEC = 3;
 
 export function secToFrames(sec: number): number {
   return Math.round(sec * FPS);
@@ -36,4 +37,9 @@ export function stopSceneDurationSec(stop: Pick<Stop, "audioDurationSec" | "medi
 export function closureSceneDurationSec(scene: Pick<MapScene, "closure">): number {
   const audioSec = scene.closure?.audioDurationSec;
   return audioSec ? Math.max(CLOSURE_MIN_SEC, audioSec + 1) : CLOSURE_MIN_SEC;
+}
+
+export function titleCardDurationSec(trip: { titleCardAudioDurationSec?: number }): number {
+  const audioSec = trip.titleCardAudioDurationSec;
+  return audioSec ? Math.max(TITLE_CARD_MIN_SEC, audioSec + 1) : TITLE_CARD_MIN_SEC;
 }

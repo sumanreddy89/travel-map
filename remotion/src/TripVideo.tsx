@@ -1,11 +1,20 @@
 import { AbsoluteFill, Audio, Loop, Sequence, staticFile } from "remotion";
 import { MapTransition } from "./scenes/MapTransition";
 import { StopContent } from "./scenes/StopContent";
+import { TitleCard } from "./scenes/TitleCard";
 import { SHOW_MEDIA_PANEL_IN_MAP_SCENES } from "./config";
-import { FPS, closureSceneDurationSec, mapSceneDurationSec, secToFrames, stopSceneDurationSec } from "./timing";
+import {
+  FPS,
+  closureSceneDurationSec,
+  mapSceneDurationSec,
+  secToFrames,
+  stopSceneDurationSec,
+  titleCardDurationSec,
+} from "./timing";
 import type { MapScene, MediaItem, Stop, TripVideoProps } from "./types";
 
 type TimelineItem =
+  | { kind: "title"; durationInFrames: number }
   | { kind: "map"; scene: MapScene; media: MediaItem[]; durationInFrames: number }
   | { kind: "stop"; stop: Stop; durationInFrames: number };
 
@@ -16,7 +25,9 @@ type TimelineItem =
 // scene with its stop's content, and drops closures in wherever they land
 // (mid-trip on a country change, or trailing at the very end).
 function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["mapScenes"]): TimelineItem[] {
-  const items: TimelineItem[] = [];
+  const items: TimelineItem[] = [
+    { kind: "title", durationInFrames: secToFrames(titleCardDurationSec(trip)) },
+  ];
   let mi = 0;
 
   const pushClosures = () => {
@@ -65,6 +76,14 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes }) => {
   const items = timeline.map((item, i) => {
     const from = cursor;
     cursor += item.durationInFrames;
+
+    if (item.kind === "title") {
+      return (
+        <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Title">
+          <TitleCard trip={trip} />
+        </Sequence>
+      );
+    }
 
     if (item.kind === "map") {
       const name = item.scene.closure ? `Closure: ${item.scene.country.name}` : `Map: ${item.scene.toStop.name}`;

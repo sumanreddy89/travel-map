@@ -12,6 +12,7 @@ import {
   writeTrip,
 } from "../lib/tripStore.js";
 import { DATA_DIR } from "../config.js";
+import { generateNarration, generateOpeningNarration } from "../services/narration.js";
 import type { MediaItem, Stop } from "../types.js";
 
 export const tripsRouter = Router();
@@ -37,14 +38,34 @@ tripsRouter.get("/:id", async (req, res) => {
 tripsRouter.put("/:id", async (req, res) => {
   try {
     const trip = await readTrip(req.params.id);
-    const { title, stops, music } = req.body ?? {};
+    const { title, stops, music, orientation, titleCardNarration } = req.body ?? {};
     if (title !== undefined) trip.title = title;
     if (stops !== undefined) trip.stops = stops;
     if (music !== undefined) trip.music = music;
+    if (orientation !== undefined) trip.orientation = orientation;
+    if (titleCardNarration !== undefined && titleCardNarration !== trip.titleCardNarration) {
+      trip.titleCardNarration = titleCardNarration;
+      // text changed - the previously recorded audio no longer matches it
+      trip.titleCardAudioPath = undefined;
+      trip.titleCardAudioDurationSec = undefined;
+    }
     await writeTrip(trip);
     res.json(trip);
   } catch {
     res.status(404).json({ error: "Trip not found" });
+  }
+});
+
+tripsRouter.post("/:id/title-narration", async (req, res) => {
+  try {
+    const trip = await readTrip(req.params.id);
+    trip.titleCardNarration = await generateOpeningNarration(trip);
+    trip.titleCardAudioPath = undefined;
+    trip.titleCardAudioDurationSec = undefined;
+    await writeTrip(trip);
+    res.json({ titleCardNarration: trip.titleCardNarration });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
@@ -78,11 +99,35 @@ tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
-    Object.assign(stop, req.body ?? {}, { id: stop.id });
+    const patch = req.body ?? {};
+    if (patch.narration !== undefined && patch.narration !== stop.narration) {
+      // text changed - the previously recorded audio no longer matches it
+      stop.audioPath = undefined;
+      stop.audioDurationSec = undefined;
+    }
+    Object.assign(stop, patch, { id: stop.id });
     await writeTrip(trip);
     res.json(stop);
   } catch {
     res.status(404).json({ error: "Trip not found" });
+  }
+});
+
+tripsRouter.post("/:id/stops/:stopId/narration", async (req, res) => {
+  try {
+    const trip = await readTrip(req.params.id);
+    const stop = trip.stops.find((s) => s.id === req.params.stopId);
+    if (!stop) {
+      res.status(404).json({ error: "Stop not found" });
+      return;
+    }
+    stop.narration = await generateNarration(trip.title, stop);
+    stop.audioPath = undefined;
+    stop.audioDurationSec = undefined;
+    await writeTrip(trip);
+    res.json(stop);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
