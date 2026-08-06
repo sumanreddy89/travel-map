@@ -54,6 +54,10 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   const hasMedia = media.length > 0;
   const panelWidth = hasMedia ? Math.round(fullWidth * PANEL_WIDTH_RATIO) : 0;
   const width = fullWidth - panelWidth;
+  // Fixed pixel sizes (fonts, strokes, pins) below were tuned against a
+  // 1920px-wide landscape canvas - scale them so a 1080px portrait export
+  // doesn't end up with oversized text/markers relative to the frame.
+  const scale = fullWidth / 1920;
 
   // Every point involved in this scene - all the already-visited stops from
   // earlier legs in this country visit, plus this scene's own leg - so the
@@ -77,16 +81,20 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   // single isolated point - e.g. the trip's very first arrival - doesn't
   // zoom in so tight that the country's silhouette fills the whole frame
   // with no visible edge, losing the "which country is this" context.
+  const viewportAspect = width / height;
   const viewBbox = useMemo<Bbox>(
     () =>
-      paddedPointBbox(allPoints, {
+      paddedPointBbox(allPoints, viewportAspect, {
         minSpanLng: (country.bbox[2] - country.bbox[0]) * 0.4,
         minSpanLat: (country.bbox[3] - country.bbox[1]) * 0.4,
       }),
-    [allPoints, country]
+    [allPoints, viewportAspect, country]
   );
 
-  const projection = useMemo(() => buildProjection(viewBbox, width, height, 140), [viewBbox, width, height]);
+  const projection = useMemo(
+    () => buildProjection(viewBbox, width, height, 140 * scale),
+    [viewBbox, width, height, scale]
+  );
 
   const countryPathD = useMemo(() => geometryToPath(projection, country.countryGeometry), [projection, country]);
   const admin1PathsD = useMemo(
@@ -240,7 +248,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
               d={pointsToPath(pts)}
               fill="none"
               stroke={LINE_COLOR}
-              strokeWidth={5}
+              strokeWidth={5 * scale}
               strokeLinecap="round"
               strokeLinejoin="round"
               opacity={isClosure ? 0.9 : 0.7}
@@ -254,7 +262,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             d={currentLinePathD}
             fill="none"
             stroke={LINE_COLOR}
-            strokeWidth={5}
+            strokeWidth={5 * scale}
             strokeLinecap="round"
             strokeLinejoin="round"
             filter="url(#lineShadow)"
@@ -263,7 +271,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
 
         {currentLeg && travelerPos && (
           <g
-            transform={`translate(${travelerPos[0]}, ${travelerPos[1]}) scale(${travelerPulse})`}
+            transform={`translate(${travelerPos[0]}, ${travelerPos[1]}) scale(${travelerPulse * scale})`}
             opacity={travelerFade}
           >
             <circle r={11} fill={GLOW_COLOR} filter="url(#glow)" opacity={0.9} />
@@ -274,22 +282,29 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         <g opacity={fadeIn}>
           {staticPoints.map((p) => {
             const pt = projectedById.get(p.id);
-            return pt ? <PinAndLabel key={p.id} x={pt[0]} y={pt[1]} label={p.name} scale={1} /> : null;
+            return pt ? (
+              <PinAndLabel key={p.id} x={pt[0]} y={pt[1]} label={p.name} scale={scale} />
+            ) : null;
           })}
         </g>
         {animatedPoint && animatedPt && (
-          <PinAndLabel x={animatedPt[0]} y={animatedPt[1]} label={animatedPoint.name} scale={destinationPop} />
+          <PinAndLabel
+            x={animatedPt[0]}
+            y={animatedPt[1]}
+            label={animatedPoint.name}
+            scale={destinationPop * scale}
+          />
         )}
       </svg>
 
       <div
         style={{
           position: "absolute",
-          top: 64,
-          left: 72,
+          top: 64 * scale,
+          left: 72 * scale,
           display: "flex",
           alignItems: "center",
-          gap: 18,
+          gap: 18 * scale,
         }}
       >
         <div
@@ -297,8 +312,8 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             color: "white",
             fontFamily,
             fontWeight: 700,
-            fontSize: 56,
-            letterSpacing: 4,
+            fontSize: 56 * scale,
+            letterSpacing: 4 * scale,
             textTransform: "uppercase",
             textShadow: "0 2px 18px rgba(0,0,0,0.6)",
             opacity: titleIn,
@@ -310,7 +325,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         {isClosure && closureBadgeIn > 0.01 && (
           <div
             style={{
-              transform: `scale(${closureBadgeIn})`,
+              transform: `scale(${closureBadgeIn * scale})`,
               width: 44,
               height: 44,
               borderRadius: "50%",

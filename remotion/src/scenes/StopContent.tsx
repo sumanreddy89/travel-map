@@ -10,8 +10,11 @@ export type StopContentProps = {
 };
 
 export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, width } = useVideoConfig();
   const frame = useCurrentFrame();
+  // Fixed pixel sizes below were tuned against a 1920px-wide landscape
+  // canvas - scale them for narrower portrait exports.
+  const scale = width / 1920;
 
   const media = stop.media.length > 0 ? stop.media : [null];
   const perItem = Math.floor(durationInFrames / media.length);
@@ -42,23 +45,34 @@ export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
       <div
         style={{
           position: "absolute",
-          left: 72,
-          bottom: 64,
-          right: 72,
+          left: 72 * scale,
+          bottom: 64 * scale,
+          right: 72 * scale,
           color: "white",
           fontFamily,
           opacity: captionOpacity,
           transform: `translateY(${interpolate(captionOpacity, [0, 1], [24, 0])}px)`,
         }}
       >
-        <div style={{ fontSize: 52, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>
+        <div style={{ fontSize: 52 * scale, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>
           {stop.name}
         </div>
         {stop.date && (
-          <div style={{ fontSize: 24, opacity: 0.85, marginTop: 4, fontWeight: 400 }}>{stop.date}</div>
+          <div style={{ fontSize: 24 * scale, opacity: 0.85, marginTop: 4 * scale, fontWeight: 400 }}>
+            {stop.date}
+          </div>
         )}
         {stop.notes && (
-          <div style={{ fontSize: 22, opacity: 0.9, marginTop: 10, fontWeight: 300, maxWidth: 1100, lineHeight: 1.4 }}>
+          <div
+            style={{
+              fontSize: 22 * scale,
+              opacity: 0.9,
+              marginTop: 10 * scale,
+              fontWeight: 300,
+              maxWidth: width - 144 * scale,
+              lineHeight: 1.4,
+            }}
+          >
             {stop.notes}
           </div>
         )}

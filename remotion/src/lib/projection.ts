@@ -64,21 +64,36 @@ export function pointBbox(points: { lat: number; lng: number }[]): Bbox {
 // first arrival) otherwise zooms in so tight the country silhouette fills
 // the whole frame edge-to-edge with no visible border, losing the "which
 // country/shape is this" context the glow outline is there to give.
+//
+// viewportAspect (width/height of the video frame) is required: without
+// matching the view window's own aspect ratio to the frame's, fitExtent
+// still renders correctly but a country/route that's naturally wide-and-flat
+// (like Cyprus) leaves huge empty margins top and bottom in a tall portrait
+// frame, since it can only scale up to the *narrower* limiting dimension.
+// Expanding the shorter side of the bbox to match closes that gap.
 export function paddedPointBbox(
   points: { lat: number; lng: number }[],
+  viewportAspect: number,
   opts: { minSpanLng?: number; minSpanLat?: number; paddingRatio?: number } = {}
 ): Bbox {
   const { minSpanLng = 0.35, minSpanLat = 0.35, paddingRatio = 0.45 } = opts;
-  let [minLng, minLat, maxLng, maxLat] = pointBbox(points);
+  const [rawMinLng, rawMinLat, rawMaxLng, rawMaxLat] = pointBbox(points);
+  const rawSpanLng = rawMaxLng - rawMinLng;
+  const rawSpanLat = rawMaxLat - rawMinLat;
 
-  let spanLng = maxLng - minLng;
+  let minLng = rawMinLng;
+  let maxLng = rawMaxLng;
+  let minLat = rawMinLat;
+  let maxLat = rawMaxLat;
+
+  let spanLng = rawSpanLng;
   if (spanLng < minSpanLng) {
     const c = (minLng + maxLng) / 2;
     minLng = c - minSpanLng / 2;
     maxLng = c + minSpanLng / 2;
     spanLng = minSpanLng;
   }
-  let spanLat = maxLat - minLat;
+  let spanLat = rawSpanLat;
   if (spanLat < minSpanLat) {
     const c = (minLat + maxLat) / 2;
     minLat = c - minSpanLat / 2;
@@ -88,5 +103,52 @@ export function paddedPointBbox(
 
   const padLng = spanLng * paddingRatio;
   const padLat = spanLat * paddingRatio;
-  return [minLng - padLng, minLat - padLat, maxLng + padLng, maxLat + padLat];
+  minLng -= padLng;
+  maxLng += padLng;
+  minLat -= padLat;
+  maxLat += padLat;
+  spanLng += 2 * padLng;
+  spanLat += 2 * padLat;
+
+  // Reconcile the bbox's aspect ratio with the frame's - but only when
+  // they're on opposite sides of square (a landscape-shaped bbox in a
+  // portrait frame, or vice versa). Same-side mismatches (e.g. a wide
+  // country in a moderately-wide landscape frame) are already handled fine
+  // by fitExtent's own centering, and were tuned/approved as-is - applying
+  // this correction there too would shift that already-good framing.
+  // For a genuine orientation clash (Cyprus - wide and flat - in a tall
+  // portrait frame is the extreme case), neither stretching one axis alone
+  // (leaves the subject tiny and thin) nor cropping the other alone (can cut
+  // a multi-stop route's stops out of frame) works well, so split the
+  // correction as a geometric-mean blend of both, falling back to pure
+  // growth only if shrinking would cut below the points' actual spread.
+  const bboxAspect = spanLng / spanLat;
+  const isOrientationClash = bboxAspect > 1 !== viewportAspect > 1;
+  if (isOrientationClash && bboxAspect > viewportAspect) {
+    const factor = Math.sqrt(bboxAspect / viewportAspect);
+    const floorLngSpan = rawSpanLng * (1 + paddingRatio);
+    const newLngSpan = Math.max(spanLng / factor, floorLngSpan);
+    const cLng = (minLng + maxLng) / 2;
+    minLng = cLng - newLngSpan / 2;
+    maxLng = cLng + newLngSpan / 2;
+
+    const newLatSpan = Math.max(newLngSpan / viewportAspect, spanLat);
+    const cLat = (minLat + maxLat) / 2;
+    minLat = cLat - newLatSpan / 2;
+    maxLat = cLat + newLatSpan / 2;
+  } else if (isOrientationClash && bboxAspect < viewportAspect) {
+    const factor = Math.sqrt(viewportAspect / bboxAspect);
+    const floorLatSpan = rawSpanLat * (1 + paddingRatio);
+    const newLatSpan = Math.max(spanLat / factor, floorLatSpan);
+    const cLat = (minLat + maxLat) / 2;
+    minLat = cLat - newLatSpan / 2;
+    maxLat = cLat + newLatSpan / 2;
+
+    const newLngSpan = Math.max(newLatSpan * viewportAspect, spanLng);
+    const cLng = (minLng + maxLng) / 2;
+    minLng = cLng - newLngSpan / 2;
+    maxLng = cLng + newLngSpan / 2;
+  }
+
+  return [minLng, minLat, maxLng, maxLat];
 }
