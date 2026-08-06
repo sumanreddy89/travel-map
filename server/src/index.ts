@@ -5,6 +5,7 @@ import { DATA_DIR, PORT } from "./config.js";
 import { tripsRouter } from "./routes/trips.js";
 import { geocodeRouter } from "./routes/geocode.js";
 import { renderRouter } from "./routes/render.js";
+import { listMusicTracks } from "./services/music.js";
 
 const app = express();
 app.use(cors());
@@ -16,6 +17,9 @@ app.use("/api/trips", renderRouter);
 app.use("/api/geocode", geocodeRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.get("/api/music", async (_req, res) => {
+  res.json(await listMusicTracks());
+});
 
 app.listen(PORT, () => {
   console.log(`TravelMap server listening on http://localhost:${PORT}`);
