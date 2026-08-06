@@ -18,13 +18,19 @@ export type Stop = {
   audioDurationSec?: number;
 };
 
+export type Orientation = "landscape" | "portrait";
+
 export type Trip = {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
   stops: Stop[];
-  music?: { path: string; volume: number };
+  music?: { path: string; volume: number; durationSec?: number };
+  orientation?: Orientation;
+  titleCardNarration?: string;
+  titleCardAudioPath?: string;
+  titleCardAudioDurationSec?: number;
 };
 
 export type RenderJobState = "idle" | "narrating" | "voicing" | "mapping" | "rendering" | "done" | "error";
@@ -36,10 +42,17 @@ export type RenderJob = {
   message?: string;
   outputPath?: string;
   error?: string;
+  warnings?: string[];
 };
 
 export type GeocodeResult = {
   display_name: string;
   lat: string;
   lon: string;
+};
+
+export type MusicTrack = {
+  path: string;
+  name: string;
+  durationSec: number;
 };
