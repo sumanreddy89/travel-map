@@ -23,6 +23,13 @@ export type Stop = {
   closureNarration?: string;
   closureAudioPath?: string; // relative to DATA_DIR
   closureAudioDurationSec?: number;
+  // Set on whichever stop is the destination of a travelled leg (i.e. every
+  // stop except the trip's very first) - caches the short "heading from A to
+  // B" transition line the map scene voices over as it animates the route,
+  // the same way closureNarration above caches the country farewell line.
+  travelNarration?: string;
+  travelAudioPath?: string; // relative to DATA_DIR
+  travelAudioDurationSec?: number;
 };
 
 export type Orientation = "landscape" | "portrait";
@@ -73,6 +80,14 @@ export type MapScene = {
   // wraps up (leaving for another country, or the trip ending) - shows the
   // whole completed route for that country with no further animation.
   closure?: {
+    narration: string;
+    audioPath?: string; // relative to DATA_DIR
+    audioDurationSec?: number;
+  };
+  // Present whenever this scene animates an actual leg (currentLeg is set) -
+  // the short "heading from A to B" (or "journey's final stop" for the very
+  // last leg) line voiced over the travel animation.
+  travel?: {
     narration: string;
     audioPath?: string; // relative to DATA_DIR
     audioDurationSec?: number;

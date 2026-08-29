@@ -68,6 +68,14 @@ export type MapScene = {
     audioPath?: string; // relative to DATA_DIR
     audioDurationSec?: number;
   };
+  // Present whenever this scene animates an actual leg (currentLeg is set) -
+  // the short "heading from A to B" (or "journey's final stop" for the very
+  // last leg) line voiced over the travel animation.
+  travel?: {
+    narration: string;
+    audioPath?: string; // relative to DATA_DIR
+    audioDurationSec?: number;
+  };
 };
 
 export type TripVideoProps = {
