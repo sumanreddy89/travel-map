@@ -15,3 +15,7 @@ remotion/public/terrain/
 # Symlink to ../../data created automatically at render time - points to a
 # local absolute path, never something to commit.
 remotion/public/data
+
+# Original music tracks - not licensed for redistribution, see NOTICE.md.
+# Kept locally; drop your own file(s) here to enable the music picker.
+remotion/public/music/
