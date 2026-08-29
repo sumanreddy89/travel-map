@@ -35,6 +35,23 @@ Write ONE warm, short sentence (or two very short ones) in the style of a travel
   return complete(prompt, 120);
 }
 
+export async function generateTravelNarration(
+  tripTitle: string,
+  fromName: string,
+  toName: string,
+  isFinalLeg: boolean
+): Promise<string> {
+  const prompt = isFinalLeg
+    ? `You are writing a one-line voiceover for a short travel montage video titled "${tripTitle}", spoken as the map animates the final leg of the journey, arriving at ${toName} - the last stop of the entire trip.
+
+Write ONE very short sentence, under 12 words, in the style of a travel documentary host marking that this is the journey's final destination. Plain prose only, no markdown, no quotation marks, no stage directions.`
+    : `You are writing a one-line voiceover for a short travel montage video titled "${tripTitle}", spoken as the map animates travel from ${fromName} to ${toName}.
+
+Write ONE very short sentence, under 12 words, in the style of a travel documentary host narrating the transit between the two places - something like "From ${fromName}, the road leads on to ${toName}." Plain prose only, no markdown, no quotation marks, no stage directions.`;
+
+  return complete(prompt, 60);
+}
+
 export async function generateOpeningNarration(trip: Pick<Trip, "title" | "stops">): Promise<string> {
   const stopNames = trip.stops.map((s) => s.name).filter(Boolean);
   const first = stopNames[0];
