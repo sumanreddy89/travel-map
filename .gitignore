@@ -5,6 +5,7 @@ data/
 dist/
 out/
 .DS_Store
+*.tsbuildinfo
 
 # Cached/derived cartography assets - regenerated from data/geo-raw via
 # server/src/scripts/convertGeo.ts and services/geo.ts on demand. Large
