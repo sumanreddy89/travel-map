@@ -48,7 +48,7 @@ export type MapTransitionProps = {
 export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, durationInFrames }) => {
   const frame = useCurrentFrame();
   const { width: fullWidth, height, fps } = useVideoConfig();
-  const { toStop, country, currentLeg, priorLegs, closure } = scene;
+  const { toStop, country, currentLeg, priorLegs, closure, travel } = scene;
   const isClosure = Boolean(closure);
 
   const hasMedia = media.length > 0;
@@ -378,6 +378,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
       )}
 
       {closure?.audioPath && <Audio src={staticFile(`data/${closure.audioPath}`)} />}
+      {travel?.audioPath && <Audio src={staticFile(`data/${travel.audioPath}`)} />}
     </AbsoluteFill>
   );
 };

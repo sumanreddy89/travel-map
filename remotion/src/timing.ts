@@ -22,10 +22,17 @@ export function secToFrames(sec: number): number {
 // more to look at, same pacing idea as stopSceneDurationSec below. A scene
 // with prior (already-travelled) legs also gets a small bonus since there's
 // more accumulated route on screen to take in.
-export function mapSceneDurationSec(scene: Pick<MapScene, "currentLeg" | "priorLegs">, mediaCount = 0): number {
+export function mapSceneDurationSec(
+  scene: Pick<MapScene, "currentLeg" | "priorLegs" | "travel">,
+  mediaCount = 0
+): number {
   const base = scene.currentLeg ? MAP_TRANSIT_BASE_SEC : MAP_ARRIVAL_BASE_SEC;
   const priorBonus = Math.min(scene.priorLegs.length, MAP_MAX_PRIOR_LEGS_COUNTED) * MAP_PER_PRIOR_LEG_SEC;
-  return base + Math.min(mediaCount, MAP_MAX_PHOTOS_COUNTED) * MAP_PER_PHOTO_SEC + priorBonus;
+  const computed = base + Math.min(mediaCount, MAP_MAX_PHOTOS_COUNTED) * MAP_PER_PHOTO_SEC + priorBonus;
+  // Don't let the scene cut away mid-sentence on a leg whose transit line
+  // happens to run longer than the usual pacing would allow for.
+  const travelAudioSec = scene.travel?.audioDurationSec;
+  return travelAudioSec ? Math.max(computed, travelAudioSec + 1) : computed;
 }
 
 export function stopSceneDurationSec(stop: Pick<Stop, "audioDurationSec" | "media">): number {
