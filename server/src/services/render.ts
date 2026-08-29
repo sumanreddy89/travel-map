@@ -150,6 +150,26 @@ async function runJob(tripId: string): Promise<void> {
     }
   }
 
+  for (const scene of mapScenes) {
+    if (!scene.travel || scene.travel.audioPath) continue; // already cached from an earlier render
+    const destStop = trip.stops.find((s) => s.id === scene.toStop.id);
+    setJob(tripId, { message: `Recording transition to ${scene.toStop.name}...` });
+    try {
+      const outFile = path.join(audioDir, `travel-${scene.toStop.id}.mp3`);
+      await synthesizeSpeech(scene.travel.narration, outFile);
+      scene.travel.audioPath = path.relative(DATA_DIR, outFile);
+      scene.travel.audioDurationSec = await getAudioDurationSec(outFile);
+      if (destStop) {
+        destStop.travelAudioPath = scene.travel.audioPath;
+        destStop.travelAudioDurationSec = scene.travel.audioDurationSec;
+        await writeTrip(trip);
+      }
+    } catch (err) {
+      warnings.push(`Voiceover failed for the transition to "${scene.toStop.name}" - it plays silent.`);
+      console.warn(`Travel voiceover failed for transition to ${scene.toStop.name}, continuing without audio:`, err);
+    }
+  }
+
   // If the trip has no explicit music choice, fall back to whatever track
   // (if any) has been dropped into remotion/public/music/ - doesn't get
   // written back to trip.json, just used for this render. An explicit choice
