@@ -1,6 +1,6 @@
 import { ensureCountryAssets, findCountryForPoint, type CountryAssets } from "./geo.js";
 import { fetchRoute } from "./routing.js";
-import { generateClosingNarration } from "./narration.js";
+import { generateClosingNarration, generateTravelNarration } from "./narration.js";
 import type { MapScene, RouteLeg, Stop } from "../types.js";
 
 function toPoint(stop: Stop) {
@@ -59,9 +59,28 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
     streakCountry = country;
 
     let currentLeg: RouteLeg | undefined;
+    let travel: MapScene["travel"];
     if (prevStop) {
       const routeCoords = await fetchRoute(prevStop, toStop);
       currentLeg = { from: toPoint(prevStop), to: toPoint(toStop), routeCoords };
+
+      // Cache on toStop the same way closure lines are cached on the stop
+      // that closes a country visit, so a re-render doesn't re-roll a fresh
+      // Claude + TTS call for a leg that's already been voiced.
+      const isFinalLeg = i === stops.length - 1;
+      if (!toStop.travelNarration) {
+        toStop.travelNarration = await generateTravelNarration(
+          tripTitle,
+          prevStop.name,
+          toStop.name,
+          isFinalLeg
+        );
+      }
+      travel = {
+        narration: toStop.travelNarration,
+        audioPath: toStop.travelAudioPath,
+        audioDurationSec: toStop.travelAudioDurationSec,
+      };
     }
 
     scenes.push({
@@ -69,6 +88,7 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
       country,
       currentLeg,
       priorLegs: [...streak],
+      travel,
     });
 
     if (currentLeg) streak.push(currentLeg);
