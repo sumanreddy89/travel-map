@@ -19,6 +19,9 @@ export const ELEVENLABS_VOICE_ID =
   process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
 
 export const PORT = Number(process.env.PORT ?? 4000);
+// Local-only: the API has no auth, so it must not be reachable from the network.
+export const HOST = "127.0.0.1";
+export const WEB_ORIGIN = "http://localhost:5173";
 
 export const FPS = 30;
 

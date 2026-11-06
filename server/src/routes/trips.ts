@@ -11,11 +11,15 @@ import {
   tripMediaDir,
   writeTrip,
 } from "../lib/tripStore.js";
+import { validateIdParam } from "../lib/validateId.js";
 import { DATA_DIR } from "../config.js";
 import { generateNarration, generateOpeningNarration } from "../services/narration.js";
 import type { MediaItem, Stop } from "../types.js";
 
 export const tripsRouter = Router();
+
+tripsRouter.param("id", validateIdParam);
+tripsRouter.param("stopId", validateIdParam);
 
 tripsRouter.get("/", async (_req, res) => {
   res.json(await listTrips());
