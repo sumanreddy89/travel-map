@@ -7,7 +7,13 @@ function toPoint(stop: Stop) {
   return { id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng };
 }
 
-export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<MapScene[]> {
+// A failed line only costs that line: its scene plays silent and a warning is
+// added to `warnings`, rather than one Claude error stopping the whole render.
+export async function buildMapScenes(
+  stops: Stop[],
+  tripTitle: string,
+  warnings: string[] = []
+): Promise<MapScene[]> {
   const scenes: MapScene[] = [];
 
   // Accumulates completed legs for the country currently being visited, so
@@ -27,14 +33,19 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
     // re-roll a fresh Claude + TTS call (and its failure risk) every time.
     const lastStop = prevStop;
     if (!lastStop.closureNarration) {
-      lastStop.closureNarration = await generateClosingNarration(tripTitle, streakCountry.name);
+      try {
+        lastStop.closureNarration = await generateClosingNarration(tripTitle, streakCountry.name);
+      } catch (err) {
+        warnings.push(`Narration failed for the ${streakCountry.name} closing line - it plays silent.`);
+        console.warn(`Closing narration failed for ${streakCountry.name}, continuing without it:`, err);
+      }
     }
     scenes.push({
       toStop: streak[streak.length - 1].to,
       country: streakCountry,
       priorLegs: [...streak],
       closure: {
-        narration: lastStop.closureNarration,
+        narration: lastStop.closureNarration ?? "",
         audioPath: lastStop.closureAudioPath,
         audioDurationSec: lastStop.closureAudioDurationSec,
       },
@@ -72,21 +83,34 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
       const isFinalLeg = i === stops.length - 1;
       const narrationKey = JSON.stringify([prevStop.name, toStop.name, isFinalLeg]);
       if (!toStop.travelNarration || toStop.travelNarrationKey !== narrationKey) {
-        toStop.travelNarration = await generateTravelNarration(
-          tripTitle,
-          prevStop.name,
-          toStop.name,
-          isFinalLeg
-        );
-        toStop.travelNarrationKey = narrationKey;
-        toStop.travelAudioPath = undefined;
-        toStop.travelAudioDurationSec = undefined;
+        const otherLines = stops
+          .filter((s) => s !== toStop && s.travelNarration)
+          .map((s) => s.travelNarration as string);
+        try {
+          toStop.travelNarration = await generateTravelNarration(
+            tripTitle,
+            prevStop.name,
+            toStop.name,
+            isFinalLeg,
+            otherLines
+          );
+          toStop.travelNarrationKey = narrationKey;
+          toStop.travelAudioPath = undefined;
+          toStop.travelAudioDurationSec = undefined;
+        } catch (err) {
+          warnings.push(`Narration failed for the transition to "${toStop.name}" - it plays silent.`);
+          console.warn(`Travel narration failed for transition to ${toStop.name}, continuing without it:`, err);
+        }
       }
-      travel = {
-        narration: toStop.travelNarration,
-        audioPath: toStop.travelAudioPath,
-        audioDurationSec: toStop.travelAudioDurationSec,
-      };
+      // A failed rewrite leaves the old line for the old leg in place, so only
+      // use a line that belongs to this leg. The next render tries again.
+      if (toStop.travelNarration && toStop.travelNarrationKey === narrationKey) {
+        travel = {
+          narration: toStop.travelNarration,
+          audioPath: toStop.travelAudioPath,
+          audioDurationSec: toStop.travelAudioDurationSec,
+        };
+      }
     }
 
     scenes.push({

@@ -16,6 +16,21 @@ export function getJob(tripId: string): RenderJob | undefined {
   return jobs.get(tripId);
 }
 
+// Jobs live in memory, so after a server restart a finished video has no job.
+// The file on disk is still the source of truth for "there's a video to show".
+export async function getRenderStatus(tripId: string): Promise<Partial<RenderJob> & Pick<RenderJob, "tripId" | "state" | "progress">> {
+  const job = jobs.get(tripId);
+  if (job) return job;
+  const outputLocation = path.join(tripOutputDir(tripId), "final.mp4");
+  const hasVideo = await fs.access(outputLocation).then(
+    () => true,
+    () => false
+  );
+  return hasVideo
+    ? { tripId, state: "done", progress: 1, outputPath: path.relative(DATA_DIR, outputLocation) }
+    : { tripId, state: "idle", progress: 0 };
+}
+
 function setJob(tripId: string, patch: Partial<RenderJob>) {
   const existing = jobs.get(tripId);
   const now = new Date().toISOString();
@@ -48,7 +63,13 @@ async function ensurePublicDataLink() {
 
 export async function startRenderJob(tripId: string): Promise<void> {
   const existing = jobs.get(tripId);
-  if (existing && (existing.state === "narrating" || existing.state === "voicing" || existing.state === "rendering")) {
+  if (
+    existing &&
+    (existing.state === "narrating" ||
+      existing.state === "voicing" ||
+      existing.state === "mapping" ||
+      existing.state === "rendering")
+  ) {
     return; // already running
   }
   setJob(tripId, { state: "narrating", progress: 0, message: "Writing narration...", error: undefined, warnings: undefined });
@@ -124,14 +145,15 @@ async function runJob(tripId: string): Promise<void> {
   // recap scene (with its own generated closing line) wherever a country
   // visit wraps up.
   setJob(tripId, { state: "mapping", message: "Preparing map animation..." });
-  const mapScenes = await buildMapScenes(trip.stops, trip.title);
+  const mapScenes = await buildMapScenes(trip.stops, trip.title, warnings);
   // buildMapScenes may have generated and cached new closure narration text
   // onto the relevant stops (mutated in place, since it received trip.stops
   // by reference) - persist that now so a later render reuses it too.
   await writeTrip(trip);
 
   for (const scene of mapScenes) {
-    if (!scene.closure || scene.closure.audioPath) continue; // already cached from an earlier render
+    // Skip if already cached from an earlier render, or if its text failed.
+    if (!scene.closure || scene.closure.audioPath || !scene.closure.narration) continue;
     const closureStop = trip.stops.find((s) => s.id === scene.toStop.id);
     setJob(tripId, { message: `Recording closing line for ${scene.country.name}...` });
     try {

@@ -39,15 +39,30 @@ export async function generateTravelNarration(
   tripTitle: string,
   fromName: string,
   toName: string,
-  isFinalLeg: boolean
+  isFinalLeg: boolean,
+  otherLines: string[] = []
 ): Promise<string> {
+  // Each line is written on its own, so without seeing the others they all
+  // settle on the same sentence shape. Compass directions are banned because
+  // nothing here tells the model which way the leg actually runs.
+  const rules = `Plain prose only, no markdown, no quotation marks, no stage directions. Do not mention compass directions such as north or south, or how the journey is made, since neither is known here.${
+    otherLines.length > 0
+      ? `
+
+Other transition lines already in this video:
+${otherLines.map((line) => `- ${line}`).join("\n")}
+
+Yours will be heard alongside these, so use a clearly different sentence structure, opening and verb. Do not reuse their phrasing.`
+      : ""
+  }`;
+
   const prompt = isFinalLeg
     ? `You are writing a one-line voiceover for a short travel montage video titled "${tripTitle}", spoken as the map animates the final leg of the journey, arriving at ${toName} - the last stop of the entire trip.
 
-Write ONE very short sentence, under 12 words, in the style of a travel documentary host marking that this is the journey's final destination. Plain prose only, no markdown, no quotation marks, no stage directions.`
+Write ONE very short sentence, under 12 words, in the style of a travel documentary host marking that this is the journey's final destination. ${rules}`
     : `You are writing a one-line voiceover for a short travel montage video titled "${tripTitle}", spoken as the map animates travel from ${fromName} to ${toName}.
 
-Write ONE very short sentence, under 12 words, in the style of a travel documentary host narrating the transit between the two places - something like "From ${fromName}, the road leads on to ${toName}." Plain prose only, no markdown, no quotation marks, no stage directions.`;
+Write ONE very short sentence, under 12 words, in the style of a travel documentary host narrating the transit between the two places. ${rules}`;
 
   return complete(prompt, 60);
 }
