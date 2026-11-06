@@ -11,11 +11,19 @@ import {
   tripMediaDir,
   writeTrip,
 } from "../lib/tripStore.js";
+import { validateIdParam } from "../lib/validateId.js";
 import { DATA_DIR } from "../config.js";
 import { generateNarration, generateOpeningNarration } from "../services/narration.js";
 import type { MediaItem, Stop } from "../types.js";
 
 export const tripsRouter = Router();
+
+tripsRouter.param("id", validateIdParam);
+tripsRouter.param("stopId", validateIdParam);
+
+// The only stop fields a client may set. Everything else (media and audio
+// paths especially) is server-managed, and those paths get read and deleted.
+const EDITABLE_STOP_FIELDS = ["name", "lat", "lng", "date", "notes", "narration"] as const;
 
 tripsRouter.get("/", async (_req, res) => {
   res.json(await listTrips());
@@ -38,9 +46,8 @@ tripsRouter.get("/:id", async (req, res) => {
 tripsRouter.put("/:id", async (req, res) => {
   try {
     const trip = await readTrip(req.params.id);
-    const { title, stops, music, orientation, titleCardNarration } = req.body ?? {};
+    const { title, music, orientation, titleCardNarration } = req.body ?? {};
     if (title !== undefined) trip.title = title;
-    if (stops !== undefined) trip.stops = stops;
     if (music !== undefined) trip.music = music;
     if (orientation !== undefined) trip.orientation = orientation;
     if (titleCardNarration !== undefined && titleCardNarration !== trip.titleCardNarration) {
@@ -91,6 +98,33 @@ tripsRouter.post("/:id/stops", async (req, res) => {
   }
 });
 
+// Must stay above PUT /:id/stops/:stopId, which would otherwise match first
+// and treat "reorder" as a stop ID.
+tripsRouter.put("/:id/stops/reorder", async (req, res) => {
+  let trip;
+  try {
+    trip = await readTrip(req.params.id);
+  } catch {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+  const order: unknown = req.body?.order;
+  const currentIds = new Set(trip.stops.map((s) => s.id));
+  const isCompleteOrder =
+    Array.isArray(order) &&
+    order.length === trip.stops.length &&
+    new Set(order).size === order.length &&
+    order.every((id) => currentIds.has(id));
+  if (!isCompleteOrder) {
+    res.status(400).json({ error: "order must list every stop exactly once" });
+    return;
+  }
+  const byId = new Map(trip.stops.map((s) => [s.id, s]));
+  trip.stops = (order as string[]).map((id) => byId.get(id) as Stop);
+  await writeTrip(trip);
+  res.json(trip);
+});
+
 tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
   try {
     const trip = await readTrip(req.params.id);
@@ -99,13 +133,16 @@ tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
-    const patch = req.body ?? {};
+    const body = req.body ?? {};
+    const patch: Partial<Stop> = Object.fromEntries(
+      EDITABLE_STOP_FIELDS.filter((field) => body[field] !== undefined).map((field) => [field, body[field]])
+    );
     if (patch.narration !== undefined && patch.narration !== stop.narration) {
       // text changed - the previously recorded audio no longer matches it
       stop.audioPath = undefined;
       stop.audioDurationSec = undefined;
     }
-    Object.assign(stop, patch, { id: stop.id });
+    Object.assign(stop, patch);
     await writeTrip(trip);
     res.json(stop);
   } catch {
@@ -137,22 +174,6 @@ tripsRouter.delete("/:id/stops/:stopId", async (req, res) => {
     trip.stops = trip.stops.filter((s) => s.id !== req.params.stopId);
     await writeTrip(trip);
     res.status(204).end();
-  } catch {
-    res.status(404).json({ error: "Trip not found" });
-  }
-});
-
-tripsRouter.put("/:id/stops/reorder", async (req, res) => {
-  try {
-    const trip = await readTrip(req.params.id);
-    const order: string[] = req.body?.order ?? [];
-    const byId = new Map(trip.stops.map((s) => [s.id, s]));
-    const reordered = order.map((id) => byId.get(id)).filter((s): s is Stop => Boolean(s));
-    if (reordered.length === trip.stops.length) {
-      trip.stops = reordered;
-      await writeTrip(trip);
-    }
-    res.json(trip);
   } catch {
     res.status(404).json({ error: "Trip not found" });
   }
@@ -199,7 +220,13 @@ tripsRouter.delete("/:id/stops/:stopId/media/:mediaId", async (req, res) => {
     }
     const item = stop.media.find((m) => m.id === req.params.mediaId);
     if (item) {
-      await fs.rm(path.join(DATA_DIR, item.path), { force: true });
+      // item.path comes from trip.json, so check it rather than trust it.
+      const target = path.resolve(DATA_DIR, item.path);
+      if (path.dirname(target) !== path.resolve(tripMediaDir(trip.id, stop.id))) {
+        res.status(400).json({ error: "Media path is outside this stop's media folder" });
+        return;
+      }
+      await fs.rm(target, { force: true });
       stop.media = stop.media.filter((m) => m.id !== req.params.mediaId);
       await writeTrip(trip);
     }

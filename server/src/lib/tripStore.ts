@@ -64,5 +64,11 @@ export async function createTrip(title: string): Promise<Trip> {
 }
 
 export async function deleteTrip(tripId: string): Promise<void> {
-  await fs.rm(tripDir(tripId), { recursive: true, force: true });
+  // This is a recursive delete, so independently of any route validation,
+  // refuse to touch anything but a direct child of the trips folder.
+  const target = path.resolve(tripDir(tripId));
+  if (path.dirname(target) !== path.resolve(TRIPS_DIR)) {
+    throw new Error(`Refusing to delete outside the trips folder: ${tripId}`);
+  }
+  await fs.rm(target, { recursive: true, force: true });
 }

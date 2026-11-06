@@ -66,15 +66,21 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
 
       // Cache on toStop the same way closure lines are cached on the stop
       // that closes a country visit, so a re-render doesn't re-roll a fresh
-      // Claude + TTS call for a leg that's already been voiced.
+      // Claude + TTS call for a leg that's already been voiced. The key ties
+      // the line to this exact leg: reordering, adding, removing or renaming
+      // stops changes what it should say, so it's rewritten and re-voiced.
       const isFinalLeg = i === stops.length - 1;
-      if (!toStop.travelNarration) {
+      const narrationKey = JSON.stringify([prevStop.name, toStop.name, isFinalLeg]);
+      if (!toStop.travelNarration || toStop.travelNarrationKey !== narrationKey) {
         toStop.travelNarration = await generateTravelNarration(
           tripTitle,
           prevStop.name,
           toStop.name,
           isFinalLeg
         );
+        toStop.travelNarrationKey = narrationKey;
+        toStop.travelAudioPath = undefined;
+        toStop.travelAudioDurationSec = undefined;
       }
       travel = {
         narration: toStop.travelNarration,

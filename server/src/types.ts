@@ -28,6 +28,7 @@ export type Stop = {
   // B" transition line the map scene voices over as it animates the route,
   // the same way closureNarration above caches the country farewell line.
   travelNarration?: string;
+  travelNarrationKey?: string; // the leg travelNarration was written for
   travelAudioPath?: string; // relative to DATA_DIR
   travelAudioDurationSec?: number;
 };
