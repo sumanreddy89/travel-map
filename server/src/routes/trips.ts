@@ -98,6 +98,33 @@ tripsRouter.post("/:id/stops", async (req, res) => {
   }
 });
 
+// Must stay above PUT /:id/stops/:stopId, which would otherwise match first
+// and treat "reorder" as a stop ID.
+tripsRouter.put("/:id/stops/reorder", async (req, res) => {
+  let trip;
+  try {
+    trip = await readTrip(req.params.id);
+  } catch {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+  const order: unknown = req.body?.order;
+  const currentIds = new Set(trip.stops.map((s) => s.id));
+  const isCompleteOrder =
+    Array.isArray(order) &&
+    order.length === trip.stops.length &&
+    new Set(order).size === order.length &&
+    order.every((id) => currentIds.has(id));
+  if (!isCompleteOrder) {
+    res.status(400).json({ error: "order must list every stop exactly once" });
+    return;
+  }
+  const byId = new Map(trip.stops.map((s) => [s.id, s]));
+  trip.stops = (order as string[]).map((id) => byId.get(id) as Stop);
+  await writeTrip(trip);
+  res.json(trip);
+});
+
 tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
   try {
     const trip = await readTrip(req.params.id);
@@ -147,22 +174,6 @@ tripsRouter.delete("/:id/stops/:stopId", async (req, res) => {
     trip.stops = trip.stops.filter((s) => s.id !== req.params.stopId);
     await writeTrip(trip);
     res.status(204).end();
-  } catch {
-    res.status(404).json({ error: "Trip not found" });
-  }
-});
-
-tripsRouter.put("/:id/stops/reorder", async (req, res) => {
-  try {
-    const trip = await readTrip(req.params.id);
-    const order: string[] = req.body?.order ?? [];
-    const byId = new Map(trip.stops.map((s) => [s.id, s]));
-    const reordered = order.map((id) => byId.get(id)).filter((s): s is Stop => Boolean(s));
-    if (reordered.length === trip.stops.length) {
-      trip.stops = reordered;
-      await writeTrip(trip);
-    }
-    res.json(trip);
   } catch {
     res.status(404).json({ error: "Trip not found" });
   }
