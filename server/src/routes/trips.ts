@@ -21,6 +21,10 @@ export const tripsRouter = Router();
 tripsRouter.param("id", validateIdParam);
 tripsRouter.param("stopId", validateIdParam);
 
+// The only stop fields a client may set. Everything else (media and audio
+// paths especially) is server-managed, and those paths get read and deleted.
+const EDITABLE_STOP_FIELDS = ["name", "lat", "lng", "date", "notes", "narration"] as const;
+
 tripsRouter.get("/", async (_req, res) => {
   res.json(await listTrips());
 });
@@ -42,9 +46,8 @@ tripsRouter.get("/:id", async (req, res) => {
 tripsRouter.put("/:id", async (req, res) => {
   try {
     const trip = await readTrip(req.params.id);
-    const { title, stops, music, orientation, titleCardNarration } = req.body ?? {};
+    const { title, music, orientation, titleCardNarration } = req.body ?? {};
     if (title !== undefined) trip.title = title;
-    if (stops !== undefined) trip.stops = stops;
     if (music !== undefined) trip.music = music;
     if (orientation !== undefined) trip.orientation = orientation;
     if (titleCardNarration !== undefined && titleCardNarration !== trip.titleCardNarration) {
@@ -103,13 +106,16 @@ tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
-    const patch = req.body ?? {};
+    const body = req.body ?? {};
+    const patch: Partial<Stop> = Object.fromEntries(
+      EDITABLE_STOP_FIELDS.filter((field) => body[field] !== undefined).map((field) => [field, body[field]])
+    );
     if (patch.narration !== undefined && patch.narration !== stop.narration) {
       // text changed - the previously recorded audio no longer matches it
       stop.audioPath = undefined;
       stop.audioDurationSec = undefined;
     }
-    Object.assign(stop, patch, { id: stop.id });
+    Object.assign(stop, patch);
     await writeTrip(trip);
     res.json(stop);
   } catch {
@@ -203,7 +209,13 @@ tripsRouter.delete("/:id/stops/:stopId/media/:mediaId", async (req, res) => {
     }
     const item = stop.media.find((m) => m.id === req.params.mediaId);
     if (item) {
-      await fs.rm(path.join(DATA_DIR, item.path), { force: true });
+      // item.path comes from trip.json, so check it rather than trust it.
+      const target = path.resolve(DATA_DIR, item.path);
+      if (path.dirname(target) !== path.resolve(tripMediaDir(trip.id, stop.id))) {
+        res.status(400).json({ error: "Media path is outside this stop's media folder" });
+        return;
+      }
+      await fs.rm(target, { force: true });
       stop.media = stop.media.filter((m) => m.id !== req.params.mediaId);
       await writeTrip(trip);
     }

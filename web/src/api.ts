@@ -16,7 +16,7 @@ export const api = {
   getTrip: (id: string) => fetch(`/api/trips/${id}`).then((r) => json<Trip>(r)),
   updateTrip: (
     id: string,
-    patch: Partial<Pick<Trip, "title" | "stops" | "music" | "orientation" | "titleCardNarration">>
+    patch: Partial<Pick<Trip, "title" | "music" | "orientation" | "titleCardNarration">>
   ) =>
     fetch(`/api/trips/${id}`, {
       method: "PUT",
