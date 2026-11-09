@@ -44,10 +44,44 @@ export async function readTrip(tripId: string): Promise<Trip> {
   return JSON.parse(raw) as Trip;
 }
 
-export async function writeTrip(trip: Trip): Promise<void> {
+// Written to a temp file and renamed so a reader never sees half a trip.json.
+async function writeTrip(trip: Trip): Promise<void> {
   trip.updatedAt = new Date().toISOString();
   await ensureDir(tripDir(trip.id));
-  await fs.writeFile(tripJsonPath(trip.id), JSON.stringify(trip, null, 2));
+  const tempPath = `${tripJsonPath(trip.id)}.${nanoid(6)}.tmp`;
+  try {
+    await fs.writeFile(tempPath, JSON.stringify(trip, null, 2));
+    await fs.rename(tempPath, tripJsonPath(trip.id));
+  } catch (err) {
+    await fs.rm(tempPath, { force: true });
+    throw err;
+  }
+}
+
+const tripLocks = new Map<string, Promise<unknown>>();
+
+function withTripLock<T>(tripId: string, task: () => Promise<T>): Promise<T> {
+  const previous = tripLocks.get(tripId) ?? Promise.resolve();
+  const run = previous.then(task);
+  const tail = run.catch(() => undefined);
+  tripLocks.set(tripId, tail);
+  void tail.then(() => {
+    if (tripLocks.get(tripId) === tail) tripLocks.delete(tripId);
+  });
+  return run;
+}
+
+// The only way to change a saved trip. `mutate` gets the latest version from
+// disk, with the lock held, so concurrent changes can't overwrite each other.
+// Don't do slow work (Claude, TTS) inside it: everything else on the trip waits.
+export function updateTrip<T>(tripId: string, mutate: (trip: Trip) => T | Promise<T>): Promise<T> {
+  return withTripLock(tripId, async () => {
+    const trip = await readTrip(tripId);
+    const before = JSON.stringify(trip);
+    const result = await mutate(trip);
+    if (JSON.stringify(trip) !== before) await writeTrip(trip);
+    return result;
+  });
 }
 
 export async function createTrip(title: string): Promise<Trip> {
@@ -70,5 +104,5 @@ export async function deleteTrip(tripId: string): Promise<void> {
   if (path.dirname(target) !== path.resolve(TRIPS_DIR)) {
     throw new Error(`Refusing to delete outside the trips folder: ${tripId}`);
   }
-  await fs.rm(target, { recursive: true, force: true });
+  await withTripLock(tripId, () => fs.rm(target, { recursive: true, force: true }));
 }

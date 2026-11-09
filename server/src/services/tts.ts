@@ -4,10 +4,14 @@ import { spawn } from "node:child_process";
 import fetch from "node-fetch";
 import { ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID } from "../config.js";
 
+// A stalled request would otherwise hold the render open forever.
+const TTS_TIMEOUT_MS = 60_000;
+
 export async function synthesizeSpeech(text: string, outFile: string): Promise<void> {
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`;
   const resp = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
     headers: {
       "xi-api-key": ELEVENLABS_API_KEY,
       "Content-Type": "application/json",

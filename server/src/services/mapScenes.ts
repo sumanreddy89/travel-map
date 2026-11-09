@@ -1,4 +1,4 @@
-import { ensureCountryAssets, findCountryForPoint, type CountryAssets } from "./geo.js";
+import { countryIso, ensureCountryAssets, findCountryForPoint, regionForPoint, type CountryAssets } from "./geo.js";
 import { fetchRoute } from "./routing.js";
 import { generateClosingNarration, generateTravelNarration } from "./narration.js";
 import type { MapScene, RouteLeg, Stop } from "../types.js";
@@ -15,6 +15,19 @@ export async function buildMapScenes(
   warnings: string[] = []
 ): Promise<MapScene[]> {
   const scenes: MapScene[] = [];
+
+  // Worked out up front so every scene in a country uses the same map, framed
+  // around all the parts of that country this trip visits.
+  const stopCountries = new Map<Stop, GeoJSON.Feature>();
+  const visitedRegions = new Map<string, Set<number>>();
+  for (const stop of stops) {
+    const feature = await findCountryForPoint(stop.lat, stop.lng);
+    if (!feature) continue;
+    stopCountries.set(stop, feature);
+    const iso = countryIso(feature);
+    if (!visitedRegions.has(iso)) visitedRegions.set(iso, new Set());
+    visitedRegions.get(iso)!.add(regionForPoint(feature, stop.lat, stop.lng));
+  }
 
   // Accumulates completed legs for the country currently being visited, so
   // later scenes in the same country can show the whole route travelled so
@@ -55,13 +68,13 @@ export async function buildMapScenes(
   for (let i = 0; i < stops.length; i++) {
     const toStop = stops[i];
 
-    const countryFeature = await findCountryForPoint(toStop.lat, toStop.lng);
+    const countryFeature = stopCountries.get(toStop);
     if (!countryFeature) {
       prevStop = toStop;
       continue; // e.g. a point over open ocean - skip the map scene, keep StopContent
     }
 
-    const country = await ensureCountryAssets(countryFeature);
+    const country = await ensureCountryAssets(countryFeature, [...visitedRegions.get(countryIso(countryFeature))!]);
     if (country.iso !== streakCountryIso) {
       await closeStreakIfAny();
       streak = [];
