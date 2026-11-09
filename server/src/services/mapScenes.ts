@@ -1,4 +1,4 @@
-import { ensureCountryAssets, findCountryForPoint, type CountryAssets } from "./geo.js";
+import { countryIso, ensureCountryAssets, findCountryForPoint, regionForPoint, type CountryAssets } from "./geo.js";
 import { fetchRoute } from "./routing.js";
 import { generateClosingNarration, generateTravelNarration } from "./narration.js";
 import type { MapScene, RouteLeg, Stop } from "../types.js";
@@ -7,8 +7,27 @@ function toPoint(stop: Stop) {
   return { id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng };
 }
 
-export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<MapScene[]> {
+// A failed line only costs that line: its scene plays silent and a warning is
+// added to `warnings`, rather than one Claude error stopping the whole render.
+export async function buildMapScenes(
+  stops: Stop[],
+  tripTitle: string,
+  warnings: string[] = []
+): Promise<MapScene[]> {
   const scenes: MapScene[] = [];
+
+  // Worked out up front so every scene in a country uses the same map, framed
+  // around all the parts of that country this trip visits.
+  const stopCountries = new Map<Stop, GeoJSON.Feature>();
+  const visitedRegions = new Map<string, Set<number>>();
+  for (const stop of stops) {
+    const feature = await findCountryForPoint(stop.lat, stop.lng);
+    if (!feature) continue;
+    stopCountries.set(stop, feature);
+    const iso = countryIso(feature);
+    if (!visitedRegions.has(iso)) visitedRegions.set(iso, new Set());
+    visitedRegions.get(iso)!.add(regionForPoint(feature, stop.lat, stop.lng));
+  }
 
   // Accumulates completed legs for the country currently being visited, so
   // later scenes in the same country can show the whole route travelled so
@@ -27,14 +46,19 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
     // re-roll a fresh Claude + TTS call (and its failure risk) every time.
     const lastStop = prevStop;
     if (!lastStop.closureNarration) {
-      lastStop.closureNarration = await generateClosingNarration(tripTitle, streakCountry.name);
+      try {
+        lastStop.closureNarration = await generateClosingNarration(tripTitle, streakCountry.name);
+      } catch (err) {
+        warnings.push(`Narration failed for the ${streakCountry.name} closing line - it plays silent.`);
+        console.warn(`Closing narration failed for ${streakCountry.name}, continuing without it:`, err);
+      }
     }
     scenes.push({
       toStop: streak[streak.length - 1].to,
       country: streakCountry,
       priorLegs: [...streak],
       closure: {
-        narration: lastStop.closureNarration,
+        narration: lastStop.closureNarration ?? "",
         audioPath: lastStop.closureAudioPath,
         audioDurationSec: lastStop.closureAudioDurationSec,
       },
@@ -44,13 +68,13 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
   for (let i = 0; i < stops.length; i++) {
     const toStop = stops[i];
 
-    const countryFeature = await findCountryForPoint(toStop.lat, toStop.lng);
+    const countryFeature = stopCountries.get(toStop);
     if (!countryFeature) {
       prevStop = toStop;
       continue; // e.g. a point over open ocean - skip the map scene, keep StopContent
     }
 
-    const country = await ensureCountryAssets(countryFeature);
+    const country = await ensureCountryAssets(countryFeature, [...visitedRegions.get(countryIso(countryFeature))!]);
     if (country.iso !== streakCountryIso) {
       await closeStreakIfAny();
       streak = [];
@@ -72,21 +96,34 @@ export async function buildMapScenes(stops: Stop[], tripTitle: string): Promise<
       const isFinalLeg = i === stops.length - 1;
       const narrationKey = JSON.stringify([prevStop.name, toStop.name, isFinalLeg]);
       if (!toStop.travelNarration || toStop.travelNarrationKey !== narrationKey) {
-        toStop.travelNarration = await generateTravelNarration(
-          tripTitle,
-          prevStop.name,
-          toStop.name,
-          isFinalLeg
-        );
-        toStop.travelNarrationKey = narrationKey;
-        toStop.travelAudioPath = undefined;
-        toStop.travelAudioDurationSec = undefined;
+        const otherLines = stops
+          .filter((s) => s !== toStop && s.travelNarration)
+          .map((s) => s.travelNarration as string);
+        try {
+          toStop.travelNarration = await generateTravelNarration(
+            tripTitle,
+            prevStop.name,
+            toStop.name,
+            isFinalLeg,
+            otherLines
+          );
+          toStop.travelNarrationKey = narrationKey;
+          toStop.travelAudioPath = undefined;
+          toStop.travelAudioDurationSec = undefined;
+        } catch (err) {
+          warnings.push(`Narration failed for the transition to "${toStop.name}" - it plays silent.`);
+          console.warn(`Travel narration failed for transition to ${toStop.name}, continuing without it:`, err);
+        }
       }
-      travel = {
-        narration: toStop.travelNarration,
-        audioPath: toStop.travelAudioPath,
-        audioDurationSec: toStop.travelAudioDurationSec,
-      };
+      // A failed rewrite leaves the old line for the old leg in place, so only
+      // use a line that belongs to this leg. The next render tries again.
+      if (toStop.travelNarration && toStop.travelNarrationKey === narrationKey) {
+        travel = {
+          narration: toStop.travelNarration,
+          audioPath: toStop.travelAudioPath,
+          audioDurationSec: toStop.travelAudioDurationSec,
+        };
+      }
     }
 
     scenes.push({

@@ -9,7 +9,7 @@ import {
   listTrips,
   readTrip,
   tripMediaDir,
-  writeTrip,
+  updateTrip,
 } from "../lib/tripStore.js";
 import { validateIdParam } from "../lib/validateId.js";
 import { DATA_DIR } from "../config.js";
@@ -45,18 +45,19 @@ tripsRouter.get("/:id", async (req, res) => {
 
 tripsRouter.put("/:id", async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
     const { title, music, orientation, titleCardNarration } = req.body ?? {};
-    if (title !== undefined) trip.title = title;
-    if (music !== undefined) trip.music = music;
-    if (orientation !== undefined) trip.orientation = orientation;
-    if (titleCardNarration !== undefined && titleCardNarration !== trip.titleCardNarration) {
-      trip.titleCardNarration = titleCardNarration;
-      // text changed - the previously recorded audio no longer matches it
-      trip.titleCardAudioPath = undefined;
-      trip.titleCardAudioDurationSec = undefined;
-    }
-    await writeTrip(trip);
+    const trip = await updateTrip(req.params.id, (trip) => {
+      if (title !== undefined) trip.title = title;
+      if (music !== undefined) trip.music = music;
+      if (orientation !== undefined) trip.orientation = orientation;
+      if (titleCardNarration !== undefined && titleCardNarration !== trip.titleCardNarration) {
+        trip.titleCardNarration = titleCardNarration;
+        // text changed - the previously recorded audio no longer matches it
+        trip.titleCardAudioPath = undefined;
+        trip.titleCardAudioDurationSec = undefined;
+      }
+      return trip;
+    });
     res.json(trip);
   } catch {
     res.status(404).json({ error: "Trip not found" });
@@ -65,12 +66,14 @@ tripsRouter.put("/:id", async (req, res) => {
 
 tripsRouter.post("/:id/title-narration", async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
-    trip.titleCardNarration = await generateOpeningNarration(trip);
-    trip.titleCardAudioPath = undefined;
-    trip.titleCardAudioDurationSec = undefined;
-    await writeTrip(trip);
-    res.json({ titleCardNarration: trip.titleCardNarration });
+    // Written outside updateTrip: the Claude call shouldn't hold the trip lock.
+    const titleCardNarration = await generateOpeningNarration(await readTrip(req.params.id));
+    await updateTrip(req.params.id, (trip) => {
+      trip.titleCardNarration = titleCardNarration;
+      trip.titleCardAudioPath = undefined;
+      trip.titleCardAudioDurationSec = undefined;
+    });
+    res.json({ titleCardNarration });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -82,16 +85,16 @@ tripsRouter.delete("/:id", async (req, res) => {
 });
 
 tripsRouter.post("/:id/stops", async (req, res) => {
+  const { name, lat, lng, date, notes } = req.body ?? {};
+  if (!name || typeof lat !== "number" || typeof lng !== "number") {
+    res.status(400).json({ error: "name, lat, lng are required" });
+    return;
+  }
   try {
-    const trip = await readTrip(req.params.id);
-    const { name, lat, lng, date, notes } = req.body ?? {};
-    if (!name || typeof lat !== "number" || typeof lng !== "number") {
-      res.status(400).json({ error: "name, lat, lng are required" });
-      return;
-    }
     const stop: Stop = { id: nanoid(10), name, lat, lng, date, notes, media: [] };
-    trip.stops.push(stop);
-    await writeTrip(trip);
+    await updateTrip(req.params.id, (trip) => {
+      trip.stops.push(stop);
+    });
     res.status(201).json(stop);
   } catch {
     res.status(404).json({ error: "Trip not found" });
@@ -101,49 +104,53 @@ tripsRouter.post("/:id/stops", async (req, res) => {
 // Must stay above PUT /:id/stops/:stopId, which would otherwise match first
 // and treat "reorder" as a stop ID.
 tripsRouter.put("/:id/stops/reorder", async (req, res) => {
+  const order: unknown = req.body?.order;
   let trip;
   try {
-    trip = await readTrip(req.params.id);
+    trip = await updateTrip(req.params.id, (trip) => {
+      const currentIds = new Set(trip.stops.map((s) => s.id));
+      const isCompleteOrder =
+        Array.isArray(order) &&
+        order.length === trip.stops.length &&
+        new Set(order).size === order.length &&
+        order.every((id) => currentIds.has(id));
+      if (!isCompleteOrder) return undefined;
+      const byId = new Map(trip.stops.map((s) => [s.id, s]));
+      trip.stops = (order as string[]).map((id) => byId.get(id) as Stop);
+      return trip;
+    });
   } catch {
     res.status(404).json({ error: "Trip not found" });
     return;
   }
-  const order: unknown = req.body?.order;
-  const currentIds = new Set(trip.stops.map((s) => s.id));
-  const isCompleteOrder =
-    Array.isArray(order) &&
-    order.length === trip.stops.length &&
-    new Set(order).size === order.length &&
-    order.every((id) => currentIds.has(id));
-  if (!isCompleteOrder) {
+  if (!trip) {
     res.status(400).json({ error: "order must list every stop exactly once" });
     return;
   }
-  const byId = new Map(trip.stops.map((s) => [s.id, s]));
-  trip.stops = (order as string[]).map((id) => byId.get(id) as Stop);
-  await writeTrip(trip);
   res.json(trip);
 });
 
 tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
-    const stop = trip.stops.find((s) => s.id === req.params.stopId);
-    if (!stop) {
-      res.status(404).json({ error: "Stop not found" });
-      return;
-    }
     const body = req.body ?? {};
     const patch: Partial<Stop> = Object.fromEntries(
       EDITABLE_STOP_FIELDS.filter((field) => body[field] !== undefined).map((field) => [field, body[field]])
     );
-    if (patch.narration !== undefined && patch.narration !== stop.narration) {
-      // text changed - the previously recorded audio no longer matches it
-      stop.audioPath = undefined;
-      stop.audioDurationSec = undefined;
+    const stop = await updateTrip(req.params.id, (trip) => {
+      const stop = trip.stops.find((s) => s.id === req.params.stopId);
+      if (!stop) return undefined;
+      if (patch.narration !== undefined && patch.narration !== stop.narration) {
+        // text changed - the previously recorded audio no longer matches it
+        stop.audioPath = undefined;
+        stop.audioDurationSec = undefined;
+      }
+      Object.assign(stop, patch);
+      return stop;
+    });
+    if (!stop) {
+      res.status(404).json({ error: "Stop not found" });
+      return;
     }
-    Object.assign(stop, patch);
-    await writeTrip(trip);
     res.json(stop);
   } catch {
     res.status(404).json({ error: "Trip not found" });
@@ -152,16 +159,26 @@ tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
 
 tripsRouter.post("/:id/stops/:stopId/narration", async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
-    const stop = trip.stops.find((s) => s.id === req.params.stopId);
+    const before = await readTrip(req.params.id);
+    const beforeStop = before.stops.find((s) => s.id === req.params.stopId);
+    if (!beforeStop) {
+      res.status(404).json({ error: "Stop not found" });
+      return;
+    }
+    // Written outside updateTrip: the Claude call shouldn't hold the trip lock.
+    const narration = await generateNarration(before.title, beforeStop);
+    const stop = await updateTrip(req.params.id, (trip) => {
+      const stop = trip.stops.find((s) => s.id === req.params.stopId);
+      if (!stop) return undefined;
+      stop.narration = narration;
+      stop.audioPath = undefined;
+      stop.audioDurationSec = undefined;
+      return stop;
+    });
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
-    stop.narration = await generateNarration(trip.title, stop);
-    stop.audioPath = undefined;
-    stop.audioDurationSec = undefined;
-    await writeTrip(trip);
     res.json(stop);
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -170,9 +187,9 @@ tripsRouter.post("/:id/stops/:stopId/narration", async (req, res) => {
 
 tripsRouter.delete("/:id/stops/:stopId", async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
-    trip.stops = trip.stops.filter((s) => s.id !== req.params.stopId);
-    await writeTrip(trip);
+    await updateTrip(req.params.id, (trip) => {
+      trip.stops = trip.stops.filter((s) => s.id !== req.params.stopId);
+    });
     res.status(204).end();
   } catch {
     res.status(404).json({ error: "Trip not found" });
@@ -183,14 +200,13 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500
 
 tripsRouter.post("/:id/stops/:stopId/media", upload.array("files", 20), async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
-    const stop = trip.stops.find((s) => s.id === req.params.stopId);
-    if (!stop) {
+    const before = await readTrip(req.params.id);
+    if (!before.stops.some((s) => s.id === req.params.stopId)) {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
-    const dir = tripMediaDir(trip.id, stop.id);
+    const dir = tripMediaDir(before.id, req.params.stopId);
     await fs.mkdir(dir, { recursive: true });
     const added: MediaItem[] = [];
     for (const file of files) {
@@ -199,11 +215,17 @@ tripsRouter.post("/:id/stops/:stopId/media", upload.array("files", 20), async (r
       const filename = `${nanoid(10)}${ext}`;
       await fs.writeFile(path.join(dir, filename), file.buffer);
       const relPath = path.relative(DATA_DIR, path.join(dir, filename));
-      const item: MediaItem = { id: nanoid(10), type: isVideo ? "video" : "photo", path: relPath };
-      stop.media.push(item);
-      added.push(item);
+      added.push({ id: nanoid(10), type: isVideo ? "video" : "photo", path: relPath });
     }
-    await writeTrip(trip);
+    const saved = await updateTrip(req.params.id, (trip) => {
+      const stop = trip.stops.find((s) => s.id === req.params.stopId);
+      stop?.media.push(...added);
+      return Boolean(stop);
+    });
+    if (!saved) {
+      res.status(404).json({ error: "Stop not found" });
+      return;
+    }
     res.status(201).json(added);
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -212,25 +234,27 @@ tripsRouter.post("/:id/stops/:stopId/media", upload.array("files", 20), async (r
 
 tripsRouter.delete("/:id/stops/:stopId/media/:mediaId", async (req, res) => {
   try {
-    const trip = await readTrip(req.params.id);
-    const stop = trip.stops.find((s) => s.id === req.params.stopId);
-    if (!stop) {
-      res.status(404).json({ error: "Stop not found" });
-      return;
-    }
-    const item = stop.media.find((m) => m.id === req.params.mediaId);
-    if (item) {
+    const result = await updateTrip(req.params.id, async (trip) => {
+      const stop = trip.stops.find((s) => s.id === req.params.stopId);
+      if (!stop) return "no-stop" as const;
+      const item = stop.media.find((m) => m.id === req.params.mediaId);
+      if (!item) return "ok" as const;
       // item.path comes from trip.json, so check it rather than trust it.
       const target = path.resolve(DATA_DIR, item.path);
       if (path.dirname(target) !== path.resolve(tripMediaDir(trip.id, stop.id))) {
-        res.status(400).json({ error: "Media path is outside this stop's media folder" });
-        return;
+        return "outside" as const;
       }
       await fs.rm(target, { force: true });
       stop.media = stop.media.filter((m) => m.id !== req.params.mediaId);
-      await writeTrip(trip);
+      return "ok" as const;
+    });
+    if (result === "no-stop") {
+      res.status(404).json({ error: "Stop not found" });
+    } else if (result === "outside") {
+      res.status(400).json({ error: "Media path is outside this stop's media folder" });
+    } else {
+      res.status(204).end();
     }
-    res.status(204).end();
   } catch {
     res.status(404).json({ error: "Trip not found" });
   }

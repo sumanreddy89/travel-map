@@ -22,6 +22,7 @@ const STATE_LABEL: Record<string, string> = {
 };
 
 const NO_MUSIC = "__none__";
+const ACTIVE_STATES = ["narrating", "voicing", "mapping", "rendering"];
 
 export function RenderPanel({
   tripId,
@@ -36,19 +37,30 @@ export function RenderPanel({
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
-    api.renderStatus(tripId).then(setJob).catch(() => {});
+    // A render outlives this page, so pick it back up after a reload or after
+    // switching trips rather than only tracking renders started from here.
+    api
+      .renderStatus(tripId)
+      .then((j) => {
+        setJob(j);
+        if (ACTIVE_STATES.includes(j.state)) startPolling();
+      })
+      .catch(() => {});
     api.listMusic().then(setTracks).catch(() => {});
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   function startPolling() {
     if (pollRef.current) window.clearInterval(pollRef.current);
     pollRef.current = window.setInterval(async () => {
-      const j = await api.renderStatus(tripId);
+      // One failed check (e.g. the server restarting) shouldn't end tracking.
+      const j = await api.renderStatus(tripId).catch(() => null);
+      if (!j) return;
       setJob(j);
-      if (j.state === "done" || j.state === "error") {
+      if (!ACTIVE_STATES.includes(j.state)) {
         if (pollRef.current) window.clearInterval(pollRef.current);
       }
     }, 1500);
@@ -60,7 +72,7 @@ export function RenderPanel({
     startPolling();
   }
 
-  const active = job && ["narrating", "voicing", "mapping", "rendering"].includes(job.state);
+  const active = job && ACTIVE_STATES.includes(job.state);
 
   // Unset trip.music means "auto-pick whatever's in the music folder" - show
   // that as selected by default rather than nothing, since that's what will

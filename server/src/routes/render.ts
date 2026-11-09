@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { validateIdParam } from "../lib/validateId.js";
-import { getJob, startRenderJob } from "../services/render.js";
+import { getJob, getRenderStatus, startRenderJob } from "../services/render.js";
 
 export const renderRouter = Router();
 
@@ -11,11 +11,6 @@ renderRouter.post("/:id/render", async (req, res) => {
   res.status(202).json(getJob(req.params.id));
 });
 
-renderRouter.get("/:id/render/status", (req, res) => {
-  const job = getJob(req.params.id);
-  if (!job) {
-    res.json({ tripId: req.params.id, state: "idle", progress: 0 });
-    return;
-  }
-  res.json(job);
+renderRouter.get("/:id/render/status", async (req, res) => {
+  res.json(await getRenderStatus(req.params.id));
 });

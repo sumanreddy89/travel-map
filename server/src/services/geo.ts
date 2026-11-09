@@ -56,6 +56,57 @@ export async function findCountryForPoint(
   return undefined;
 }
 
+// Countries can include land on the far side of the world (France's Réunion,
+// Norway's Bouvet Island), and framing a map around all of it shrinks the part
+// actually visited to a speck. So polygons are grouped into regions, and a trip
+// only uses the regions it has stops in. Groups are joined within this gap so
+// archipelagos like Japan stay whole. Longitude deliberately doesn't wrap at
+// 180, which keeps Chukotka, Fiji's Lau Islands etc. out of the main region.
+const REGION_GAP_DEG = 3;
+
+function countryPolygons(feature: GeoJSON.Feature): GeoJSON.Position[][][] {
+  if (feature.geometry.type === "Polygon") return [feature.geometry.coordinates];
+  if (feature.geometry.type === "MultiPolygon") return feature.geometry.coordinates;
+  return [];
+}
+
+const regionCache = new WeakMap<GeoJSON.Feature, number[]>();
+
+// The region id of each polygon in the feature, in polygon order.
+function polygonRegions(feature: GeoJSON.Feature): number[] {
+  const cached = regionCache.get(feature);
+  if (cached) return cached;
+
+  const boxes = countryPolygons(feature).map((polygon) => turf.bbox(turf.lineString(polygon[0])));
+  const parent = boxes.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]];
+    return i;
+  };
+  for (let a = 0; a < boxes.length; a++) {
+    for (let b = a + 1; b < boxes.length; b++) {
+      const lngGap = Math.max(boxes[a][0], boxes[b][0]) - Math.min(boxes[a][2], boxes[b][2]);
+      const latGap = Math.max(boxes[a][1], boxes[b][1]) - Math.min(boxes[a][3], boxes[b][3]);
+      if (lngGap <= REGION_GAP_DEG && latGap <= REGION_GAP_DEG) parent[find(a)] = find(b);
+    }
+  }
+  const regions = boxes.map((_, i) => find(i));
+  regionCache.set(feature, regions);
+  return regions;
+}
+
+export function countryIso(feature: GeoJSON.Feature): string {
+  return String((feature.properties as any)?.iso_a3 ?? "XXX");
+}
+
+export function regionForPoint(feature: GeoJSON.Feature, lat: number, lng: number): number {
+  const regions = polygonRegions(feature);
+  const index = countryPolygons(feature).findIndex((polygon) =>
+    turf.booleanPointInPolygon(turf.point([lng, lat]), turf.polygon(polygon))
+  );
+  return regions[Math.max(index, 0)];
+}
+
 export type CountryAssets = {
   iso: string;
   name: string;
@@ -80,12 +131,27 @@ function paddedBbox(bbox: [number, number, number, number]): [number, number, nu
 
 const assetCache = new Map<string, Promise<CountryAssets>>();
 
-export function ensureCountryAssets(feature: GeoJSON.Feature): Promise<CountryAssets> {
-  const iso = String((feature.properties as any)?.iso_a3 ?? "XXX");
-  if (!assetCache.has(iso)) {
-    assetCache.set(iso, buildCountryAssets(iso, feature));
+// `regionIds` are the regions the trip has stops in, from regionForPoint.
+export function ensureCountryAssets(feature: GeoJSON.Feature, regionIds: number[]): Promise<CountryAssets> {
+  const iso = countryIso(feature);
+  const regions = polygonRegions(feature);
+  const wanted = new Set(regionIds);
+  const isWholeCountry = new Set(regions).size === wanted.size;
+  // The whole-country key matches the file names of existing cached assets.
+  const assetKey = isWholeCountry ? iso : `${iso}-${[...wanted].sort((a, b) => a - b).join("_")}`;
+  if (!assetCache.has(assetKey)) {
+    const scoped: GeoJSON.Feature = isWholeCountry
+      ? feature
+      : {
+          ...feature,
+          geometry: {
+            type: "MultiPolygon",
+            coordinates: countryPolygons(feature).filter((_, i) => wanted.has(regions[i])),
+          },
+        };
+    assetCache.set(assetKey, buildCountryAssets(iso, assetKey, scoped, isWholeCountry));
   }
-  return assetCache.get(iso)!;
+  return assetCache.get(assetKey)!;
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -97,14 +163,23 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
-async function buildCountryAssets(iso: string, feature: GeoJSON.Feature): Promise<CountryAssets> {
+function bboxesOverlap(a: number[], b: number[]): boolean {
+  return a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+}
+
+async function buildCountryAssets(
+  iso: string,
+  assetKey: string,
+  feature: GeoJSON.Feature,
+  isWholeCountry: boolean
+): Promise<CountryAssets> {
   const geoDir = path.join(GEO_DIR, "countries");
   const terrainDir = path.join(REMOTION_PUBLIC_DIR, "terrain");
   await fs.mkdir(geoDir, { recursive: true });
   await fs.mkdir(terrainDir, { recursive: true });
 
-  const geoFile = path.join(geoDir, `${iso}.json`);
-  const terrainFile = path.join(terrainDir, `${iso}.png`);
+  const geoFile = path.join(geoDir, `${assetKey}.json`);
+  const terrainFile = path.join(terrainDir, `${assetKey}.png`);
   const bbox = turf.bbox(feature) as [number, number, number, number];
   const name = String((feature.properties as any)?.name ?? iso);
 
@@ -113,7 +188,9 @@ async function buildCountryAssets(iso: string, feature: GeoJSON.Feature): Promis
     cached = JSON.parse(await fs.readFile(geoFile, "utf-8"));
   } else {
     const admin1All = await loadAdmin1();
-    const admin1 = admin1All.features.filter((f) => (f.properties as any)?.adm0_a3 === iso);
+    const admin1 = admin1All.features.filter(
+      (f) => (f.properties as any)?.adm0_a3 === iso && (isWholeCountry || bboxesOverlap(turf.bbox(f), bbox))
+    );
     const simplified = turf.simplify(feature as any, { tolerance: 0.01, highQuality: true });
     const simplifiedAdmin1 = admin1.map((f) => turf.simplify(f as any, { tolerance: 0.01, highQuality: true }));
     cached = { country: simplified as GeoJSON.Feature, admin1: simplifiedAdmin1 as GeoJSON.Feature[] };
@@ -129,7 +206,7 @@ async function buildCountryAssets(iso: string, feature: GeoJSON.Feature): Promis
     name,
     bbox,
     imageBbox: paddedBbox(bbox),
-    terrainRelPath: `terrain/${iso}.png`,
+    terrainRelPath: `terrain/${assetKey}.png`,
     countryGeometry: cached.country.geometry,
     admin1: cached.admin1,
   };

@@ -3,17 +3,32 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { DATA_DIR, REMOTION_ENTRY, REMOTION_PUBLIC_DIR, VIDEO_DIMENSIONS } from "../config.js";
-import { readTrip, tripAudioDir, tripOutputDir, writeTrip } from "../lib/tripStore.js";
+import { readTrip, tripAudioDir, tripOutputDir, updateTrip } from "../lib/tripStore.js";
 import { generateNarration, generateOpeningNarration } from "./narration.js";
 import { getAudioDurationSec, synthesizeSpeech } from "./tts.js";
 import { buildMapScenes } from "./mapScenes.js";
 import { findDefaultMusic } from "./music.js";
-import type { RenderJob } from "../types.js";
+import type { RenderJob, Stop } from "../types.js";
 
 const jobs = new Map<string, RenderJob>();
 
 export function getJob(tripId: string): RenderJob | undefined {
   return jobs.get(tripId);
+}
+
+// Jobs live in memory, so after a server restart a finished video has no job.
+// The file on disk is still the source of truth for "there's a video to show".
+export async function getRenderStatus(tripId: string): Promise<Partial<RenderJob> & Pick<RenderJob, "tripId" | "state" | "progress">> {
+  const job = jobs.get(tripId);
+  if (job) return job;
+  const outputLocation = path.join(tripOutputDir(tripId), "final.mp4");
+  const hasVideo = await fs.access(outputLocation).then(
+    () => true,
+    () => false
+  );
+  return hasVideo
+    ? { tripId, state: "done", progress: 1, outputPath: path.relative(DATA_DIR, outputLocation) }
+    : { tripId, state: "idle", progress: 0 };
 }
 
 function setJob(tripId: string, patch: Partial<RenderJob>) {
@@ -48,7 +63,13 @@ async function ensurePublicDataLink() {
 
 export async function startRenderJob(tripId: string): Promise<void> {
   const existing = jobs.get(tripId);
-  if (existing && (existing.state === "narrating" || existing.state === "voicing" || existing.state === "rendering")) {
+  if (
+    existing &&
+    (existing.state === "narrating" ||
+      existing.state === "voicing" ||
+      existing.state === "mapping" ||
+      existing.state === "rendering")
+  ) {
     return; // already running
   }
   setJob(tripId, { state: "narrating", progress: 0, message: "Writing narration...", error: undefined, warnings: undefined });
@@ -58,22 +79,51 @@ export async function startRenderJob(tripId: string): Promise<void> {
   });
 }
 
+// The render works from a snapshot of the trip and can run for minutes, so
+// results are saved field by field onto the latest copy. Saving the snapshot
+// itself would undo anything the user changed in the meantime.
+function saveToStop(tripId: string, stopId: string, apply: (latest: Stop) => void): Promise<void> {
+  return updateTrip(tripId, (latest) => {
+    const stop = latest.stops.find((s) => s.id === stopId);
+    if (stop) apply(stop);
+  });
+}
+
 async function runJob(tripId: string): Promise<void> {
   const trip = await readTrip(tripId);
+  const warnings: string[] = [];
 
   // 1. Narration - both per-stop and the opening title card line. Skipped
   // whenever text is already present, which lets a user pre-write/edit
   // narration via the UI before rendering and have that text used as-is.
+  // Best-effort like the voiceover below: a failed line plays silent and is
+  // tried again on the next render.
   if (!trip.titleCardNarration) {
     setJob(tripId, { message: "Writing opening line..." });
-    trip.titleCardNarration = await generateOpeningNarration(trip);
-    await writeTrip(trip);
+    try {
+      const line = await generateOpeningNarration(trip);
+      trip.titleCardNarration = line;
+      await updateTrip(tripId, (latest) => {
+        if (!latest.titleCardNarration) latest.titleCardNarration = line;
+      });
+    } catch (err) {
+      warnings.push("Narration failed for the opening line - it plays silent.");
+      console.warn("Opening narration failed, continuing without it:", err);
+    }
   }
   for (const stop of trip.stops) {
     if (!stop.narration) {
       setJob(tripId, { message: `Writing narration for ${stop.name}...` });
-      stop.narration = await generateNarration(trip.title, stop);
-      await writeTrip(trip);
+      try {
+        const line = await generateNarration(trip.title, stop);
+        stop.narration = line;
+        await saveToStop(tripId, stop.id, (latest) => {
+          if (!latest.narration) latest.narration = line;
+        });
+      } catch (err) {
+        warnings.push(`Narration failed for "${stop.name}" - that stop plays silent.`);
+        console.warn(`Narration failed for stop "${stop.name}", continuing without it:`, err);
+      }
     }
   }
 
@@ -84,7 +134,6 @@ async function runJob(tripId: string): Promise<void> {
   setJob(tripId, { state: "voicing", message: "Generating voiceover..." });
   const audioDir = tripAudioDir(tripId);
   await fs.mkdir(audioDir, { recursive: true });
-  const warnings: string[] = [];
 
   if (!trip.titleCardAudioPath && trip.titleCardNarration) {
     setJob(tripId, { message: "Recording opening line..." });
@@ -93,7 +142,12 @@ async function runJob(tripId: string): Promise<void> {
       await synthesizeSpeech(trip.titleCardNarration, outFile);
       trip.titleCardAudioPath = path.relative(DATA_DIR, outFile);
       trip.titleCardAudioDurationSec = await getAudioDurationSec(outFile);
-      await writeTrip(trip);
+      // If the text was edited during recording, this audio no longer matches.
+      await updateTrip(tripId, (latest) => {
+        if (latest.titleCardNarration !== trip.titleCardNarration) return;
+        latest.titleCardAudioPath = trip.titleCardAudioPath;
+        latest.titleCardAudioDurationSec = trip.titleCardAudioDurationSec;
+      });
     } catch (err) {
       warnings.push("Voiceover failed for the opening line - it plays silent.");
       console.warn("Title card voiceover failed, continuing without audio:", err);
@@ -108,7 +162,11 @@ async function runJob(tripId: string): Promise<void> {
         await synthesizeSpeech(stop.narration, outFile);
         stop.audioPath = path.relative(DATA_DIR, outFile);
         stop.audioDurationSec = await getAudioDurationSec(outFile);
-        await writeTrip(trip);
+        await saveToStop(tripId, stop.id, (latest) => {
+          if (latest.narration !== stop.narration) return;
+          latest.audioPath = stop.audioPath;
+          latest.audioDurationSec = stop.audioDurationSec;
+        });
       } catch (err) {
         warnings.push(`Voiceover failed for "${stop.name}" - that stop plays silent.`);
         console.warn(`Voiceover failed for stop "${stop.name}", continuing without audio:`, err);
@@ -124,14 +182,24 @@ async function runJob(tripId: string): Promise<void> {
   // recap scene (with its own generated closing line) wherever a country
   // visit wraps up.
   setJob(tripId, { state: "mapping", message: "Preparing map animation..." });
-  const mapScenes = await buildMapScenes(trip.stops, trip.title);
-  // buildMapScenes may have generated and cached new closure narration text
-  // onto the relevant stops (mutated in place, since it received trip.stops
-  // by reference) - persist that now so a later render reuses it too.
-  await writeTrip(trip);
+  const mapScenes = await buildMapScenes(trip.stops, trip.title, warnings);
+  // buildMapScenes caches new closure and travel lines onto the stops it was
+  // given (mutated in place) - persist those so a later render reuses them.
+  await updateTrip(tripId, (latest) => {
+    for (const stop of trip.stops) {
+      const latestStop = latest.stops.find((s) => s.id === stop.id);
+      if (!latestStop) continue;
+      latestStop.closureNarration = stop.closureNarration;
+      latestStop.travelNarration = stop.travelNarration;
+      latestStop.travelNarrationKey = stop.travelNarrationKey;
+      latestStop.travelAudioPath = stop.travelAudioPath;
+      latestStop.travelAudioDurationSec = stop.travelAudioDurationSec;
+    }
+  });
 
   for (const scene of mapScenes) {
-    if (!scene.closure || scene.closure.audioPath) continue; // already cached from an earlier render
+    // Skip if already cached from an earlier render, or if its text failed.
+    if (!scene.closure || scene.closure.audioPath || !scene.closure.narration) continue;
     const closureStop = trip.stops.find((s) => s.id === scene.toStop.id);
     setJob(tripId, { message: `Recording closing line for ${scene.country.name}...` });
     try {
@@ -140,9 +208,14 @@ async function runJob(tripId: string): Promise<void> {
       scene.closure.audioPath = path.relative(DATA_DIR, outFile);
       scene.closure.audioDurationSec = await getAudioDurationSec(outFile);
       if (closureStop) {
-        closureStop.closureAudioPath = scene.closure.audioPath;
-        closureStop.closureAudioDurationSec = scene.closure.audioDurationSec;
-        await writeTrip(trip);
+        const { narration, audioPath, audioDurationSec } = scene.closure;
+        closureStop.closureAudioPath = audioPath;
+        closureStop.closureAudioDurationSec = audioDurationSec;
+        await saveToStop(tripId, closureStop.id, (latest) => {
+          if (latest.closureNarration !== narration) return;
+          latest.closureAudioPath = audioPath;
+          latest.closureAudioDurationSec = audioDurationSec;
+        });
       }
     } catch (err) {
       warnings.push(`Voiceover failed for the ${scene.country.name} closing line - it plays silent.`);
@@ -160,9 +233,14 @@ async function runJob(tripId: string): Promise<void> {
       scene.travel.audioPath = path.relative(DATA_DIR, outFile);
       scene.travel.audioDurationSec = await getAudioDurationSec(outFile);
       if (destStop) {
-        destStop.travelAudioPath = scene.travel.audioPath;
-        destStop.travelAudioDurationSec = scene.travel.audioDurationSec;
-        await writeTrip(trip);
+        const { narration, audioPath, audioDurationSec } = scene.travel;
+        destStop.travelAudioPath = audioPath;
+        destStop.travelAudioDurationSec = audioDurationSec;
+        await saveToStop(tripId, destStop.id, (latest) => {
+          if (latest.travelNarration !== narration) return;
+          latest.travelAudioPath = audioPath;
+          latest.travelAudioDurationSec = audioDurationSec;
+        });
       }
     } catch (err) {
       warnings.push(`Voiceover failed for the transition to "${scene.toStop.name}" - it plays silent.`);
