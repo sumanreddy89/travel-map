@@ -4,7 +4,7 @@ import type { GeocodeResult } from "../types";
 import { MapPicker } from "./MapPicker";
 
 type Props = {
-  onAdd: (stop: { name: string; lat: number; lng: number; date?: string; notes?: string }) => void;
+  onAdd: (stop: { name: string; lat: number; lng: number; date?: string; notes?: string }) => Promise<void>;
 };
 
 export function StopForm({ onAdd }: Props) {
@@ -17,6 +17,8 @@ export function StopForm({ onAdd }: Props) {
   const [picked, setPicked] = useState(false);
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   async function search() {
     if (!query.trim()) return;
@@ -38,9 +40,19 @@ export function StopForm({ onAdd }: Props) {
     setQuery(r.display_name);
   }
 
-  function submit() {
-    if (!name.trim() || !picked) return;
-    onAdd({ name: name.trim(), lat, lng, date: date || undefined, notes: notes || undefined });
+  async function submit() {
+    if (!name.trim() || !picked || saving) return;
+    // Keep what was typed until the server has saved it; clear only on success.
+    setSaving(true);
+    setError("");
+    try {
+      await onAdd({ name: name.trim(), lat, lng, date: date || undefined, notes: notes || undefined });
+    } catch (err) {
+      setError(`Couldn't save the stop: ${(err as Error).message}`);
+      return;
+    } finally {
+      setSaving(false);
+    }
     setName("");
     setQuery("");
     setDate("");
@@ -92,9 +104,10 @@ export function StopForm({ onAdd }: Props) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
-          <button className="primary" onClick={submit}>
-            Add stop
+          <button className="primary" onClick={submit} disabled={saving}>
+            {saving ? "Saving..." : "Add stop"}
           </button>
+          {error && <p className="error-text" role="alert">{error}</p>}
         </>
       )}
     </div>

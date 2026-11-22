@@ -5,6 +5,11 @@ async function json<T>(resp: Response): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
+// For calls with no body to read (DELETE): still fail loudly when the server says no.
+async function ok(resp: Response): Promise<void> {
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}: ${await resp.text().catch(() => "")}`);
+}
+
 export const api = {
   listTrips: () => fetch("/api/trips").then((r) => json<Trip[]>(r)),
   createTrip: (title: string) =>
@@ -23,7 +28,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     }).then((r) => json<Trip>(r)),
-  deleteTrip: (id: string) => fetch(`/api/trips/${id}`, { method: "DELETE" }),
+  deleteTrip: (id: string) => fetch(`/api/trips/${id}`, { method: "DELETE" }).then(ok),
 
   generateTitleNarration: (tripId: string) =>
     fetch(`/api/trips/${tripId}/title-narration`, { method: "POST" }).then((r) =>
@@ -43,7 +48,7 @@ export const api = {
       body: JSON.stringify(patch),
     }).then((r) => json<Stop>(r)),
   deleteStop: (tripId: string, stopId: string) =>
-    fetch(`/api/trips/${tripId}/stops/${stopId}`, { method: "DELETE" }),
+    fetch(`/api/trips/${tripId}/stops/${stopId}`, { method: "DELETE" }).then(ok),
   generateStopNarration: (tripId: string, stopId: string) =>
     fetch(`/api/trips/${tripId}/stops/${stopId}/narration`, { method: "POST" }).then((r) => json<Stop>(r)),
   reorderStops: (tripId: string, order: string[]) =>
@@ -61,7 +66,7 @@ export const api = {
     );
   },
   deleteMedia: (tripId: string, stopId: string, mediaId: string) =>
-    fetch(`/api/trips/${tripId}/stops/${stopId}/media/${mediaId}`, { method: "DELETE" }),
+    fetch(`/api/trips/${tripId}/stops/${stopId}/media/${mediaId}`, { method: "DELETE" }).then(ok),
 
   geocode: (q: string) => fetch(`/api/geocode?q=${encodeURIComponent(q)}`).then((r) => json<GeocodeResult[]>(r)),
 

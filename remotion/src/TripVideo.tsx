@@ -104,7 +104,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes }) => {
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {trip.music && (
         <Loop durationInFrames={Math.max(1, secToFrames(trip.music.durationSec ?? 30))}>
-          <Audio src={staticFile(trip.music.path)} volume={trip.music.volume} />
+          <Audio src={staticFile(trip.music.path)} volume={() => trip.music?.volume ?? 1} />
         </Loop>
       )}
       {items}

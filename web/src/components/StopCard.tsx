@@ -50,6 +50,8 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
     try {
       const added = await api.uploadMedia(tripId, stop.id, files);
       onChange({ ...stop, media: [...stop.media, ...added] });
+    } catch (err) {
+      window.alert(`Upload failed: ${(err as Error).message}`);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -57,7 +59,12 @@ export function StopCard({ tripId, stop, index, count, onChange, onDelete, onMov
   }
 
   async function removeMedia(mediaId: string) {
-    await api.deleteMedia(tripId, stop.id, mediaId);
+    try {
+      await api.deleteMedia(tripId, stop.id, mediaId);
+    } catch (err) {
+      window.alert(`Couldn't remove it: ${(err as Error).message}`);
+      return;
+    }
     onChange({ ...stop, media: stop.media.filter((m) => m.id !== mediaId) });
   }
 

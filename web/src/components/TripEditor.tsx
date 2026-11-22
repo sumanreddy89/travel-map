@@ -29,7 +29,12 @@ export function TripEditor({ tripId, onBack }: Props) {
   }
 
   async function deleteStop(stopId: string) {
-    await api.deleteStop(tripId, stopId);
+    try {
+      await api.deleteStop(tripId, stopId);
+    } catch (err) {
+      window.alert(`Couldn't delete the stop: ${(err as Error).message}`);
+      return;
+    }
     setTrip((t) => (t ? { ...t, stops: t.stops.filter((s) => s.id !== stopId) } : t));
   }
 

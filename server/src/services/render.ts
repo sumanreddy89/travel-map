@@ -9,6 +9,7 @@ import { getAudioDurationSec, synthesizeSpeech } from "./tts.js";
 import { buildMapScenes } from "./mapScenes.js";
 import { findDefaultMusic } from "./music.js";
 import type { RenderJob, Stop } from "../types.js";
+import { renderStateFromFile } from "../lib/mediaType.js";
 
 const jobs = new Map<string, RenderJob>();
 
@@ -22,11 +23,8 @@ export async function getRenderStatus(tripId: string): Promise<Partial<RenderJob
   const job = jobs.get(tripId);
   if (job) return job;
   const outputLocation = path.join(tripOutputDir(tripId), "final.mp4");
-  const hasVideo = await fs.access(outputLocation).then(
-    () => true,
-    () => false
-  );
-  return hasVideo
+  const size = await fs.stat(outputLocation).then((s) => s.size, () => null);
+  return renderStateFromFile(size) === "done"
     ? { tripId, state: "done", progress: 1, outputPath: path.relative(DATA_DIR, outputLocation) }
     : { tripId, state: "idle", progress: 0 };
 }
@@ -276,6 +274,10 @@ async function runJob(tripId: string): Promise<void> {
   const outputDir = tripOutputDir(tripId);
   await fs.mkdir(outputDir, { recursive: true });
   const outputLocation = path.join(outputDir, "final.mp4");
+  // Render to a temporary name and only replace final.mp4 once the new file is complete, so a
+  // crash or restart mid-render never leaves a broken final.mp4 that reads as "done".
+  const partialLocation = path.join(outputDir, "final.partial.mp4");
+  await fs.rm(partialLocation, { force: true });
 
   const dims = VIDEO_DIMENSIONS[tripWithMusic.orientation ?? "landscape"];
 
@@ -283,7 +285,7 @@ async function runJob(tripId: string): Promise<void> {
     composition: { ...composition, width: dims.width, height: dims.height },
     serveUrl,
     codec: "h264",
-    outputLocation,
+    outputLocation: partialLocation,
     inputProps,
     // Default is 30s per frame - long, media-heavy trips (lots of photos,
     // several stops) can occasionally spike past that on an ordinary slower
@@ -293,6 +295,13 @@ async function runJob(tripId: string): Promise<void> {
       setJob(tripId, { progress });
     },
   });
+
+  const rendered = await fs.stat(partialLocation).then((s) => s.size, () => null);
+  if (renderStateFromFile(rendered) !== "done") {
+    await fs.rm(partialLocation, { force: true });
+    throw new Error("The render finished but produced an empty file.");
+  }
+  await fs.rename(partialLocation, outputLocation);
 
   setJob(tripId, {
     state: "done",
