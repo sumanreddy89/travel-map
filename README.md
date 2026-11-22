@@ -6,6 +6,8 @@ to your media at each destination with AI-written narration.
 
 ## Setup
 
+You need Node.js 20 or newer and ffmpeg (which includes `ffprobe`; macOS: `brew install ffmpeg`, Ubuntu: `sudo apt install ffmpeg`).
+
 ```bash
 npm install
 ```
@@ -40,6 +42,14 @@ cd ../../server && npx tsx src/scripts/convertGeo.ts
 ```
 
 That last command writes `remotion/public/geo/countries.json` and `admin1.json`.
+
+### Check your setup
+
+```bash
+npm run doctor
+```
+
+It checks Node, ffmpeg and ffprobe, your keys in `server/.env` (without printing them) and the converted map data, and says how to fix anything missing. It doesn't call any paid service.
 Per-country terrain textures (`remotion/public/terrain/*.png`) generate and
 cache automatically the first time a trip visits that country.
 
@@ -68,5 +78,24 @@ npm run studio   # opens Remotion Studio against remotion/src/sampleProps.json
   toggled off via `SHOW_MEDIA_PANEL_IN_MAP_SCENES` in `remotion/src/config.ts`.
 - `data/` holds all trip content (uploads, generated audio, output videos),
   `data/geo-raw/` the raw Natural Earth source files, and `server/.env` your
-  API keys - all gitignored, none of it leaves your machine unless you push
-  it yourself.
+  API keys - all gitignored.
+
+## What stays on your machine
+
+Your photos, videos, generated audio and finished videos stay local; the
+server only listens on 127.0.0.1. Some trip details do go to outside services
+to build the video:
+
+| Service | What it receives |
+|---|---|
+| Anthropic | Trip title, stop names and your notes, to write the narration |
+| ElevenLabs | The narration text, to read it aloud |
+| OpenStreetMap Nominatim | Place names you search for |
+| OSRM (project-osrm.org) | Stop coordinates, to draw the route |
+| OpenFreeMap | Map tile requests for the area you're viewing |
+
+## Tests
+
+```bash
+npm test
+```
