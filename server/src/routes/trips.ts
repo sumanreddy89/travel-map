@@ -13,6 +13,7 @@ import {
 } from "../lib/tripStore.js";
 import { validateIdParam } from "../lib/validateId.js";
 import { DATA_DIR } from "../config.js";
+import { detectMedia } from "../lib/mediaType.js";
 import { generateNarration, generateOpeningNarration } from "../services/narration.js";
 import type { MediaItem, Stop } from "../types.js";
 
@@ -187,8 +188,10 @@ tripsRouter.post("/:id/stops/:stopId/narration", async (req, res) => {
 
 tripsRouter.delete("/:id/stops/:stopId", async (req, res) => {
   try {
-    await updateTrip(req.params.id, (trip) => {
+    await updateTrip(req.params.id, async (trip) => {
       trip.stops = trip.stops.filter((s) => s.id !== req.params.stopId);
+      // The stop's photos and videos go with it (stopId is validated, so this stays inside the trip).
+      await fs.rm(tripMediaDir(trip.id, req.params.stopId), { recursive: true, force: true });
     });
     res.status(204).end();
   } catch {
@@ -196,7 +199,29 @@ tripsRouter.delete("/:id/stops/:stopId", async (req, res) => {
   }
 });
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
+// Uploads stream to a temp folder on the same disk (not into memory), are checked by content,
+// then moved into the stop's folder. Anything that isn't a photo or video is refused.
+const UPLOAD_TMP = path.join(DATA_DIR, "tmp-uploads");
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      fs.mkdir(UPLOAD_TMP, { recursive: true }).then(() => cb(null, UPLOAD_TMP), (err) => cb(err as Error, UPLOAD_TMP));
+    },
+    filename: (_req, _file, cb) => cb(null, nanoid(16)),
+  }),
+  limits: { fileSize: 500 * 1024 * 1024, files: 20 },
+});
+
+async function readHead(file: string): Promise<Buffer> {
+  const fh = await fs.open(file, "r");
+  try {
+    const buf = Buffer.alloc(16);
+    const { bytesRead } = await fh.read(buf, 0, 16, 0);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    await fh.close();
+  }
+}
 
 tripsRouter.post("/:id/stops/:stopId/media", upload.array("files", 20), async (req, res) => {
   try {
@@ -206,16 +231,21 @@ tripsRouter.post("/:id/stops/:stopId/media", upload.array("files", 20), async (r
       return;
     }
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+    const kinds = await Promise.all(files.map(async (f) => detectMedia(await readHead(f.path))));
+    const rejected = files.filter((_, i) => !kinds[i]).map((f) => f.originalname);
+    if (rejected.length) {
+      res.status(415).json({ error: `Not a photo or video: ${rejected.join(", ")}` });
+      return;
+    }
     const dir = tripMediaDir(before.id, req.params.stopId);
     await fs.mkdir(dir, { recursive: true });
     const added: MediaItem[] = [];
-    for (const file of files) {
-      const isVideo = file.mimetype.startsWith("video/");
-      const ext = path.extname(file.originalname) || (isVideo ? ".mp4" : ".jpg");
-      const filename = `${nanoid(10)}${ext}`;
-      await fs.writeFile(path.join(dir, filename), file.buffer);
+    for (const [i, file] of files.entries()) {
+      const kind = kinds[i]!;
+      const filename = `${nanoid(10)}${kind.ext}`;
+      await fs.rename(file.path, path.join(dir, filename));
       const relPath = path.relative(DATA_DIR, path.join(dir, filename));
-      added.push({ id: nanoid(10), type: isVideo ? "video" : "photo", path: relPath });
+      added.push({ id: nanoid(10), type: kind.kind, path: relPath });
     }
     const saved = await updateTrip(req.params.id, (trip) => {
       const stop = trip.stops.find((s) => s.id === req.params.stopId);
@@ -229,6 +259,10 @@ tripsRouter.post("/:id/stops/:stopId/media", upload.array("files", 20), async (r
     res.status(201).json(added);
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  } finally {
+    // Files moved into the stop are gone from the temp folder; this removes the rest.
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+    await Promise.all(files.map((f) => fs.rm(f.path, { force: true })));
   }
 });
 

@@ -82,6 +82,8 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
           position: "absolute",
           width: "100%",
           height: "100%",
+          // Deliberate, see the comment above: a second <Img> on the same file hung real renders.
+          // eslint-disable-next-line @remotion/no-background-image
           backgroundImage: `url(${src})`,
           backgroundSize: "cover",
           backgroundPosition: "center",

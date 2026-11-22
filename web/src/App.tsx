@@ -51,7 +51,11 @@ export default function App() {
       danger: true,
     });
     if (!ok) return;
-    await api.deleteTrip(trip.id);
+    try {
+      await api.deleteTrip(trip.id);
+    } catch (err) {
+      window.alert(`Couldn't delete the trip: ${(err as Error).message}`);
+    }
     refresh();
   }
 

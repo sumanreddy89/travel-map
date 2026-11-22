@@ -24,4 +24,6 @@ jobs:
           npx tsc -p web/tsconfig.app.json --noEmit
           npx tsc -p web/tsconfig.node.json --noEmit
           (cd remotion && npx tsc --noEmit)
+      - name: Lint Remotion
+        run: cd remotion && npx eslint src
       - run: npm test

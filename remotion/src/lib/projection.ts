@@ -37,7 +37,7 @@ export function buildProjection(viewBbox: Bbox, width: number, height: number, p
 
 export function geometryToPath(projection: GeoProjection, geometry: GeoJSON.Geometry | GeoJSON.GeoJSON): string {
   const path = geoPath(projection);
-  return path(geometry as any) ?? "";
+  return path(geometry as Parameters<typeof path>[0]) ?? "";
 }
 
 export function unionBbox(boxes: Bbox[]): Bbox {
