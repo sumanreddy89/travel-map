@@ -4,9 +4,9 @@ Turn a route of places (with your own photos/videos) into a Globe Trekker-style
 travel video: an animated, glowing map traces the route between stops, cutting
 to your media at each destination with AI-written narration.
 
-[![Porto to Madrid: the whole route on the amber terrain map](docs/demo/poster.jpg)](docs/demo/README.md)
+[![Porto to Madrid: the whole route on the amber terrain map](docs/demo/poster.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v1/demo-landscape.mp4)
 
-*The demo film, "Porto to Madrid" (39s, 1920×1080). Video download: pending upload to a GitHub release. Until then, render it yourself in a few minutes with the commands below.*
+*The demo film, "Porto to Madrid" (39s, 1920×1080, silent). Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v1/demo-landscape.mp4) (32MB). Or render it yourself in a few minutes with the commands below.*
 
 | The route draws itself | Then your photos at each stop |
 |---|---|
