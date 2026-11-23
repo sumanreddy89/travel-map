@@ -12,6 +12,7 @@ import {
   updateTrip,
 } from "../lib/tripStore.js";
 import { validateIdParam } from "../lib/validateId.js";
+import { validateNewStop, validateStopPatch, validateTitle, validateTripPatch } from "../lib/validateTrip.js";
 import { DATA_DIR } from "../config.js";
 import { detectMedia } from "../lib/mediaType.js";
 import { generateNarration, generateOpeningNarration } from "../services/narration.js";
@@ -22,17 +23,20 @@ export const tripsRouter = Router();
 tripsRouter.param("id", validateIdParam);
 tripsRouter.param("stopId", validateIdParam);
 
-// The only stop fields a client may set. Everything else (media and audio
-// paths especially) is server-managed, and those paths get read and deleted.
-const EDITABLE_STOP_FIELDS = ["name", "lat", "lng", "date", "notes", "narration"] as const;
+// Every client-supplied field goes through lib/validateTrip.ts. Only known fields survive:
+// media and audio paths are server-managed, and those paths get read and deleted.
 
 tripsRouter.get("/", async (_req, res) => {
   res.json(await listTrips());
 });
 
 tripsRouter.post("/", async (req, res) => {
-  const title = String(req.body?.title ?? "Untitled Trip");
-  const trip = await createTrip(title);
+  const title = validateTitle(req.body?.title ?? "Untitled Trip");
+  if (!title.ok) {
+    res.status(400).json({ error: title.error });
+    return;
+  }
+  const trip = await createTrip(title.value);
   res.status(201).json(trip);
 });
 
@@ -45,8 +49,13 @@ tripsRouter.get("/:id", async (req, res) => {
 });
 
 tripsRouter.put("/:id", async (req, res) => {
+  const checked = validateTripPatch(req.body);
+  if (!checked.ok) {
+    res.status(400).json({ error: checked.error });
+    return;
+  }
   try {
-    const { title, music, orientation, titleCardNarration } = req.body ?? {};
+    const { title, music, orientation, titleCardNarration } = checked.value;
     const trip = await updateTrip(req.params.id, (trip) => {
       if (title !== undefined) trip.title = title;
       if (music !== undefined) trip.music = music;
@@ -86,13 +95,13 @@ tripsRouter.delete("/:id", async (req, res) => {
 });
 
 tripsRouter.post("/:id/stops", async (req, res) => {
-  const { name, lat, lng, date, notes } = req.body ?? {};
-  if (!name || typeof lat !== "number" || typeof lng !== "number") {
-    res.status(400).json({ error: "name, lat, lng are required" });
+  const checked = validateNewStop(req.body);
+  if (!checked.ok) {
+    res.status(400).json({ error: checked.error });
     return;
   }
   try {
-    const stop: Stop = { id: nanoid(10), name, lat, lng, date, notes, media: [] };
+    const stop: Stop = { id: nanoid(10), ...checked.value, media: [] };
     await updateTrip(req.params.id, (trip) => {
       trip.stops.push(stop);
     });
@@ -132,11 +141,13 @@ tripsRouter.put("/:id/stops/reorder", async (req, res) => {
 });
 
 tripsRouter.put("/:id/stops/:stopId", async (req, res) => {
+  const checked = validateStopPatch(req.body);
+  if (!checked.ok) {
+    res.status(400).json({ error: checked.error });
+    return;
+  }
   try {
-    const body = req.body ?? {};
-    const patch: Partial<Stop> = Object.fromEntries(
-      EDITABLE_STOP_FIELDS.filter((field) => body[field] !== undefined).map((field) => [field, body[field]])
-    );
+    const patch = checked.value;
     const stop = await updateTrip(req.params.id, (trip) => {
       const stop = trip.stops.find((s) => s.id === req.params.stopId);
       if (!stop) return undefined;
