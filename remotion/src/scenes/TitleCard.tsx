@@ -1,8 +1,8 @@
-import { AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { loadFont } from "@remotion/google-fonts/Oswald";
+import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { useAssetUrl } from "../lib/assets";
+import { fontFamily } from "../lib/fonts";
 import type { Trip } from "../types";
 
-const { fontFamily } = loadFont("normal", { weights: ["400", "700"], subsets: ["latin", "latin-ext"] });
 
 const GLOW_COLOR = "#FFD24A";
 
@@ -11,6 +11,7 @@ export type TitleCardProps = {
 };
 
 export const TitleCard: React.FC<TitleCardProps> = ({ trip }) => {
+  const asset = useAssetUrl();
   const frame = useCurrentFrame();
   const { width, fps } = useVideoConfig();
   const scale = width / 1920;
@@ -87,7 +88,7 @@ export const TitleCard: React.FC<TitleCardProps> = ({ trip }) => {
         </div>
       </AbsoluteFill>
 
-      {trip.titleCardAudioPath && <Audio src={staticFile(`data/${trip.titleCardAudioPath}`)} />}
+      {trip.titleCardAudioPath && <Audio src={asset(trip.titleCardAudioPath)} />}
     </AbsoluteFill>
   );
 };

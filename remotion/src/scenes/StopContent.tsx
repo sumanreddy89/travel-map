@@ -1,15 +1,16 @@
-import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { loadFont } from "@remotion/google-fonts/Oswald";
+import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useAssetUrl } from "../lib/assets";
+import { fontFamily } from "../lib/fonts";
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import type { Stop } from "../types";
 
-const { fontFamily } = loadFont("normal", { weights: ["300", "400", "700"], subsets: ["latin", "latin-ext"] });
 
 export type StopContentProps = {
   stop: Stop;
 };
 
 export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
+  const asset = useAssetUrl();
   const { durationInFrames, width } = useVideoConfig();
   const frame = useCurrentFrame();
   // Fixed pixel sizes below were tuned against a 1920px-wide landscape
@@ -78,7 +79,7 @@ export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
         )}
       </div>
 
-      {stop.audioPath && <Audio src={staticFile(`data/${stop.audioPath}`)} />}
+      {stop.audioPath && <Audio src={asset(stop.audioPath)} />}
     </AbsoluteFill>
   );
 };

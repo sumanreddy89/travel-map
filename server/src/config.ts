@@ -7,7 +7,8 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(__dirname, "../../");
 
-export const DATA_DIR = path.join(REPO_ROOT, "data");
+// TRAVELMAP_DATA_DIR lets tests use a throwaway folder instead of your real trips.
+export const DATA_DIR = process.env.TRAVELMAP_DATA_DIR || path.join(REPO_ROOT, "data");
 export const TRIPS_DIR = path.join(DATA_DIR, "trips");
 export const REMOTION_DIR = path.join(REPO_ROOT, "remotion");
 export const REMOTION_PUBLIC_DIR = path.join(REMOTION_DIR, "public");

@@ -4,7 +4,29 @@ Turn a route of places (with your own photos/videos) into a Globe Trekker-style
 travel video: an animated, glowing map traces the route between stops, cutting
 to your media at each destination with AI-written narration.
 
-## Setup
+[![Porto to Madrid: the whole route on the amber terrain map](docs/demo/poster.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v1/demo-landscape.mp4)
+
+*The demo film, "Porto to Madrid" (39s, 1920×1080, silent). Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v1/demo-landscape.mp4) (32MB). Or render it yourself in a few minutes with the commands below.*
+
+| The route draws itself | Then your photos at each stop |
+|---|---|
+| ![The route drawing into Salamanca](docs/demo/map-frame.jpg) | ![Porto, with its caption](docs/demo/photo-frame.jpg) |
+
+### Try it: no API keys, no map download
+
+```bash
+npm ci
+npm run demo:prepare   # one-time headless browser download
+npm run demo:render    # out/demo-landscape.mp4
+```
+
+The demo renders a checked-in, illustrative trip with the network blocked. Photo and map sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: [docs/demo/README.md](docs/demo/README.md).
+
+## Full workflow: your own trips
+
+Making films of your own trips needs API keys (narration and voiceover use paid services) and a one-time ~600MB map-data download, as below. What leaves your machine is listed under [What stays on your machine](#what-stays-on-your-machine).
+
+### Setup
 
 You need Node.js 20 or newer and ffmpeg (which includes `ffprobe`; macOS: `brew install ffmpeg`, Ubuntu: `sudo apt install ffmpeg`).
 
@@ -66,7 +88,7 @@ map), upload photos/videos per stop, then click "Generate video".
 ## Preview map/scene work in isolation
 
 ```bash
-npm run studio   # opens Remotion Studio against remotion/src/sampleProps.json
+npm run studio   # opens Remotion Studio with the demo trip (remotion/src/demo/demoProps.json)
 ```
 
 ## Notes

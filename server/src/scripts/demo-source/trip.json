@@ -1,0 +1,49 @@
+{
+  "title": "Porto to Madrid",
+  "titleCardNarration": "Five days, three cities, two countries: from the Atlantic to the heart of Spain.",
+  "orientation": "landscape",
+  "stops": [
+    {
+      "id": "demo-porto",
+      "name": "Porto",
+      "lat": 41.1413,
+      "lng": -8.611,
+      "date": "Day 1",
+      "notes": "Tiled houses stacked above the river Douro.",
+      "narration": "We started in Porto, where tiled houses climb the hills above the river Douro.",
+      "media": [
+        "porto-douro.jpg",
+        "porto-ribeira.jpg"
+      ]
+    },
+    {
+      "id": "demo-salam",
+      "name": "Salamanca",
+      "lat": 40.965,
+      "lng": -5.664,
+      "date": "Day 3",
+      "notes": "Golden sandstone, lit up after dark.",
+      "narration": "Across the border into Spain, Salamanca's Plaza Mayor glows gold when the lights come on.",
+      "media": [
+        "salamanca-plaza-mayor.jpg"
+      ],
+      "travelNarration": "East over the border, from the Atlantic into Spain.",
+      "travelNarrationKey": "[\"Porto\",\"Salamanca\",false]"
+    },
+    {
+      "id": "demo-madri",
+      "name": "Madrid",
+      "lat": 40.4155,
+      "lng": -3.7074,
+      "date": "Day 5",
+      "notes": "A long evening in the Plaza Mayor.",
+      "narration": "And Madrid to finish: a long, slow evening in the Plaza Mayor.",
+      "media": [
+        "madrid-plaza-mayor.jpg"
+      ],
+      "travelNarration": "One last leg, south-east to the capital.",
+      "travelNarrationKey": "[\"Salamanca\",\"Madrid\",true]",
+      "closureNarration": "And that was Spain, the end of five days from Porto to Madrid."
+    }
+  ]
+}

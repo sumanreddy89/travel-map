@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, OffthreadVideo, interpolate, useCurrentFrame } from "remotion";
+import { useAssetUrl } from "../lib/assets";
 import type { MediaItem } from "../types";
 
 export type MediaKenBurnsProps = {
@@ -20,6 +21,7 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
   zoomTo = 1.12,
   panXTo = -18,
 }) => {
+  const asset = useAssetUrl();
   const frame = useCurrentFrame();
 
   const kenBurns = interpolate(frame, [0, durationInFrames], [1, zoomTo], {
@@ -46,7 +48,7 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
     );
   }
 
-  const src = staticFile(`data/${item.path}`);
+  const src = asset(item.path);
   const kenBurnsStyle: React.CSSProperties = {
     position: "absolute",
     width: "100%",
