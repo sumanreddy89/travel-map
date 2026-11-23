@@ -12,6 +12,7 @@ import {
   titleCardDurationSec,
 } from "./timing";
 import type { MapScene, MediaItem, Stop, TripVideoProps } from "./types";
+import { AssetBaseContext, resolveAssetBase } from "./lib/assets";
 
 type TimelineItem =
   | { kind: "title"; durationInFrames: number }
@@ -69,7 +70,7 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
   return items;
 }
 
-export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes }) => {
+export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase }) => {
   const timeline = buildTimeline(trip, mapScenes);
 
   let cursor = 0;
@@ -101,6 +102,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes }) => {
   });
 
   return (
+    <AssetBaseContext.Provider value={resolveAssetBase(assetBase)}>
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {trip.music && (
         <Loop durationInFrames={Math.max(1, secToFrames(trip.music.durationSec ?? 30))}>
@@ -109,6 +111,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes }) => {
       )}
       {items}
     </AbsoluteFill>
+    </AssetBaseContext.Provider>
   );
 };
 

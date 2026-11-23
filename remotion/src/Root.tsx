@@ -4,7 +4,8 @@ import { TripVideo, computeTotalDurationInFrames } from "./TripVideo";
 import { FPS } from "./timing";
 import { VIDEO_DIMENSIONS } from "./config";
 import type { TripVideoProps } from "./types";
-import sampleProps from "./sampleProps.json";
+// The complete, self-contained demo trip (rebuild: server/src/scripts/buildDemo.ts).
+import demoProps from "./demo/demoProps.json";
 
 const calculateMetadata: CalculateMetadataFunction<TripVideoProps> = ({ props }) => {
   const dims = VIDEO_DIMENSIONS[props.trip.orientation ?? "landscape"];
@@ -25,7 +26,7 @@ export const RemotionRoot: React.FC = () => {
       fps={FPS}
       width={1920}
       height={1080}
-      defaultProps={sampleProps as unknown as TripVideoProps}
+      defaultProps={demoProps as unknown as TripVideoProps}
       calculateMetadata={calculateMetadata}
     />
   );

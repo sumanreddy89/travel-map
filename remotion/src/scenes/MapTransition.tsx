@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useAssetUrl } from "../lib/assets";
 import {
   AbsoluteFill,
   Audio,
@@ -10,7 +11,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { loadFont } from "@remotion/google-fonts/Oswald";
+import { fontFamily } from "../lib/fonts";
 import { buildProjection, geometryToPath, paddedPointBbox, type Bbox } from "../lib/projection";
 import {
   cumulativeLengths,
@@ -23,7 +24,6 @@ import {
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
-const { fontFamily } = loadFont("normal", { weights: ["400", "700"], subsets: ["latin", "latin-ext"] });
 
 const GLOW_COLOR = "#FFD24A";
 const FILL_COLOR_TOP = "#E8791F";
@@ -46,6 +46,7 @@ export type MapTransitionProps = {
 };
 
 export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, durationInFrames }) => {
+  const asset = useAssetUrl();
   const frame = useCurrentFrame();
   const { width: fullWidth, height, fps } = useVideoConfig();
   const { toStop, country, currentLeg, priorLegs, closure, travel } = scene;
@@ -377,8 +378,8 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         </div>
       )}
 
-      {closure?.audioPath && <Audio src={staticFile(`data/${closure.audioPath}`)} />}
-      {travel?.audioPath && <Audio src={staticFile(`data/${travel.audioPath}`)} />}
+      {closure?.audioPath && <Audio src={asset(closure.audioPath)} />}
+      {travel?.audioPath && <Audio src={asset(travel.audioPath)} />}
     </AbsoluteFill>
   );
 };

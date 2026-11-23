@@ -81,4 +81,6 @@ export type MapScene = {
 export type TripVideoProps = {
   trip: Trip;
   mapScenes: MapScene[];
+  // Render-only, never from the API: "demo" serves media from remotion/public/demo/ (see lib/assets.ts).
+  assetBase?: "data" | "demo";
 };
