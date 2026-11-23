@@ -28,6 +28,7 @@ export type Trip = {
   stops: Stop[];
   music?: { path: string; volume: number; durationSec?: number };
   orientation?: Orientation; // defaults to "landscape" when unset
+  showWatermark?: boolean; // the TravelMap credit; shown unless explicitly false
   titleCardNarration?: string;
   titleCardAudioPath?: string;
   titleCardAudioDurationSec?: number;

@@ -14,6 +14,7 @@ import {
 import type { MapScene, MediaItem, Stop, TripVideoProps } from "./types";
 import { AssetBaseContext, resolveAssetBase } from "./lib/assets";
 import { useBundledFont } from "./lib/fonts";
+import { Credit } from "./components/Credit";
 
 type TimelineItem =
   | { kind: "title"; durationInFrames: number }
@@ -112,6 +113,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
         </Loop>
       )}
       {items}
+      {trip.showWatermark !== false && <Credit />}
     </AbsoluteFill>
     </AssetBaseContext.Provider>
   );

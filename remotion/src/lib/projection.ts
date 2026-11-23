@@ -1,11 +1,13 @@
 import { geoEquirectangular, geoPath, type GeoProjection } from "d3-geo";
+import type { Insets } from "./layout";
 
 export type Bbox = [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
 
 // Plain equirectangular (Plate Carrée) projection - matches the linear
 // lon/lat -> pixel mapping used server-side to crop the shaded-relief raster,
 // so the vector outline and the terrain image line up exactly with no warp.
-export function buildProjection(viewBbox: Bbox, width: number, height: number, padding = 0): GeoProjection {
+export function buildProjection(viewBbox: Bbox, width: number, height: number, padding: number | Insets = 0): GeoProjection {
+  const pad: Insets = typeof padding === "number" ? { top: padding, right: padding, bottom: padding, left: padding } : padding;
   const [minLng, minLat, maxLng, maxLat] = viewBbox;
   const projection = geoEquirectangular();
   // Winding matters to d3-geo's spherical polygon logic: this order (CCW in
@@ -27,8 +29,8 @@ export function buildProjection(viewBbox: Bbox, width: number, height: number, p
   };
   projection.fitExtent(
     [
-      [padding, padding],
-      [width - padding, height - padding],
+      [pad.left, pad.top],
+      [width - pad.right, height - pad.bottom],
     ],
     bboxPolygon
   );

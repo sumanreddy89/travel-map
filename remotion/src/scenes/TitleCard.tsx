@@ -1,6 +1,7 @@
 import { AbsoluteFill, Audio, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { useAssetUrl } from "../lib/assets";
 import { fontFamily } from "../lib/fonts";
+import { getLayout } from "../lib/layout";
 import type { Trip } from "../types";
 
 
@@ -13,8 +14,8 @@ export type TitleCardProps = {
 export const TitleCard: React.FC<TitleCardProps> = ({ trip }) => {
   const asset = useAssetUrl();
   const frame = useCurrentFrame();
-  const { width, fps } = useVideoConfig();
-  const scale = width / 1920;
+  const { width, height, fps } = useVideoConfig();
+  const scale = getLayout(width, height).text;
 
   const titlePop = spring({ frame, fps, config: { damping: 14, stiffness: 90 } });
   const titleOpacity = interpolate(frame, [0, 14], [0, 1], {

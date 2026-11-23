@@ -8,9 +8,9 @@ to your media at each destination with AI-written narration.
 
 *The demo film, "Porto to Madrid" (39s, 1920×1080, silent). Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v1/demo-landscape.mp4) (32MB). Or render it yourself in a few minutes with the commands below.*
 
-| The route draws itself | Then your photos at each stop |
-|---|---|
-| ![The route drawing into Salamanca](docs/demo/map-frame.jpg) | ![Porto, with its caption](docs/demo/photo-frame.jpg) |
+| The route draws itself | Then your photos at each stop | Portrait, for phones |
+|---|---|---|
+| ![The route drawing into Salamanca](docs/demo/map-frame.jpg) | ![Porto, with its caption](docs/demo/photo-frame.jpg) | <img src="docs/demo/portrait-photo-frame.jpg" alt="The Porto stop in portrait" width="140"> |
 
 ### Try it: no API keys, no map download
 
@@ -20,7 +20,7 @@ npm run demo:prepare   # one-time headless browser download
 npm run demo:render    # out/demo-landscape.mp4
 ```
 
-The demo renders a checked-in, illustrative trip with the network blocked. Photo and map sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: [docs/demo/README.md](docs/demo/README.md).
+Add `-- --orientation portrait` to either command for the 1080×1920 phone version. The demo renders a checked-in, illustrative trip with the network blocked. Photo and map sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: [docs/demo/README.md](docs/demo/README.md).
 
 ## Full workflow: your own trips
 
@@ -93,6 +93,10 @@ npm run studio   # opens Remotion Studio with the demo trip (remotion/src/demo/d
 
 ## Notes
 
+- Videos carry a small "TravelMap · github.com/sumanreddy89/travel-map" credit
+  by default; untick "Show TravelMap credit" next to the format choice to drop
+  it. Map scenes with a road route also show "Route data © OpenStreetMap
+  contributors", which the routing data's licence requires.
 - Background music is not auto-downloaded (copyright); drop an mp3/wav/m4a
   into `remotion/public/music/` and it's picked up automatically by every
   render at low volume - no per-trip wiring needed.

@@ -9,6 +9,8 @@ type Props = {
   onOrientationChange: (orientation: Orientation) => void;
   music: Trip["music"];
   onMusicChange: (music: Trip["music"]) => void;
+  showWatermark: boolean;
+  onShowWatermarkChange: (show: boolean) => void;
 };
 
 const STATE_LABEL: Record<string, string> = {
@@ -31,6 +33,8 @@ export function RenderPanel({
   onOrientationChange,
   music,
   onMusicChange,
+  showWatermark,
+  onShowWatermarkChange,
 }: Props) {
   const [job, setJob] = useState<RenderJob | null>(null);
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
@@ -103,6 +107,19 @@ export function RenderPanel({
             <option value="landscape">Landscape (16:9)</option>
             <option value="portrait">Portrait (9:16)</option>
           </select>
+        </label>
+
+        <label className="settings-field">
+          <span className="muted">Credit</span>
+          <span>
+            <input
+              type="checkbox"
+              checked={showWatermark}
+              disabled={!!active}
+              onChange={(e) => onShowWatermarkChange(e.target.checked)}
+            />{" "}
+            Show TravelMap credit
+          </span>
         </label>
 
         {tracks.length > 0 && (

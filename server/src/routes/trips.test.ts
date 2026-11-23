@@ -43,3 +43,13 @@ test("a rejected trip or stop update leaves the saved trip unchanged", async () 
   assert.equal((await send("POST", `${base}/${trip.id}/stops`, { name: "Nowhere", lat: 0, lng: 181 })).status, 400);
   assert.equal(await (await send("GET", `${base}/${trip.id}`)).text(), saved);
 });
+
+test("the credit setting is saved, and a bad value changes nothing", async () => {
+  const trip = await (await send("POST", base, { title: "Credit test" })).json();
+  assert.equal(trip.showWatermark, undefined, "new trips leave it unset, which means shown");
+  assert.equal((await send("PUT", `${base}/${trip.id}`, { showWatermark: false })).status, 200);
+  const saved = await (await send("GET", `${base}/${trip.id}`)).text();
+  assert.equal(JSON.parse(saved).showWatermark, false);
+  assert.equal((await send("PUT", `${base}/${trip.id}`, { showWatermark: "yes" })).status, 400);
+  assert.equal(await (await send("GET", `${base}/${trip.id}`)).text(), saved);
+});

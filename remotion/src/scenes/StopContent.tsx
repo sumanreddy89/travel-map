@@ -1,6 +1,7 @@
 import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { useAssetUrl } from "../lib/assets";
 import { fontFamily } from "../lib/fonts";
+import { getLayout } from "../lib/layout";
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import type { Stop } from "../types";
 
@@ -11,11 +12,11 @@ export type StopContentProps = {
 
 export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
   const asset = useAssetUrl();
-  const { durationInFrames, width } = useVideoConfig();
+  const { durationInFrames, width, height } = useVideoConfig();
   const frame = useCurrentFrame();
-  // Fixed pixel sizes below were tuned against a 1920px-wide landscape
-  // canvas - scale them for narrower portrait exports.
-  const scale = width / 1920;
+  // Sizes were tuned on 1920x1080; lib/layout.ts gives portrait readable type and safe margins.
+  const layout = getLayout(width, height);
+  const scale = layout.text;
 
   const media = stop.media.length > 0 ? stop.media : [null];
   const perItem = Math.floor(durationInFrames / media.length);
@@ -46,9 +47,9 @@ export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
       <div
         style={{
           position: "absolute",
-          left: 72 * scale,
-          bottom: 64 * scale,
-          right: 72 * scale,
+          left: layout.safe.left,
+          bottom: layout.safe.bottom,
+          right: layout.safe.right,
           color: "white",
           fontFamily,
           opacity: captionOpacity,
@@ -70,7 +71,12 @@ export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
               opacity: 0.9,
               marginTop: 10 * scale,
               fontWeight: 300,
-              maxWidth: width - 144 * scale,
+              maxWidth: width - layout.safe.left - layout.safe.right,
+              // A long note never pushes the caption up over the photo: at most 3 lines.
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
               lineHeight: 1.4,
             }}
           >
