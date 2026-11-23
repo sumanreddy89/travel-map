@@ -48,3 +48,15 @@ test("the demo trip is stable and valid", () => {
   // 30-60 seconds at 30fps is checked on the rendered file; here, at least the routes are precomputed.
   assert.ok(props.mapScenes.filter((s: { currentLeg?: unknown }) => s.currentLeg).length >= 2);
 });
+
+// Regressions found while building the demo (23 Nov 2026). Both made renders differ run to run:
+// the terrain is an SVG <image> Remotion doesn't wait for, so early map-scene frames could show a
+// flat country; and a font wait started at module load was sometimes never cleared in a parallel
+// render tab, failing the render. Verified fix: three demo renders came out byte-identical.
+test("map scenes wait for their terrain, and the font wait lives in a component", () => {
+  const src = (f: string) => fs.readFileSync(path.join(REMOTION_DIR, "src", f), "utf-8");
+  assert.match(src("scenes/MapTransition.tsx"), /useTerrainReady\(staticFile\(scene\.country\.terrainRelPath\)\)/);
+  assert.match(src("TripVideo.tsx"), /useBundledFont\(\);/);
+  // no delayRender outside a hook in the font module
+  assert.doesNotMatch(src("lib/fonts.ts").replace(/export function useBundledFont[\s\S]*$/, ""), /delayRender\(/);
+});

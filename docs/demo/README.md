@@ -12,8 +12,9 @@ npm run demo:stills    # rewrites docs/demo/poster.jpg, map-frame.jpg and photo-
 ## What it does and doesn't do
 
 - Renders `remotion/src/demo/demoProps.json` straight through Remotion. It doesn't start the API server, write narration, record a voiceover, geocode, fetch routes or map tiles, or convert map data.
-- **The network is blocked while it renders.** Node refuses DNS lookups for anything but localhost, and the headless browser only resolves localhost. If anything still tries a request, or the bundled font fails to load, the command fails and deletes what it wrote. Installing packages and the one-time browser download do need internet.
+- **The network is blocked while it renders.** Node refuses DNS lookups for anything but localhost, and the headless browser only resolves localhost. If anything still tries a request, or the bundled font or a terrain texture fails to load, the command fails and deletes what it wrote. Installing packages and the one-time browser download do need internet.
 - Uses only checked-in files: 4 photos, 2 terrain textures, the map shapes and routes in `demoProps.json`, and the Oswald font. About 4MB in total. Sources and licences are in [ASSETS.md](ASSETS.md).
+- It's deterministic: the same files always render byte-identical video (checked over three renders).
 - The film is silent. The narration text is in the trip, but nothing is voiced and no music is included.
 - Runs on macOS and Linux. Windows isn't supported yet, because the network block uses a shell wrapper around the browser.
 - `npm run studio` opens the same trip in Remotion Studio.

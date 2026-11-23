@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAssetUrl } from "../lib/assets";
 import {
   AbsoluteFill,
@@ -6,6 +6,8 @@ import {
   Easing,
   Sequence,
   interpolate,
+  continueRender,
+  delayRender,
   spring,
   staticFile,
   useCurrentFrame,
@@ -24,6 +26,21 @@ import {
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
+
+// The terrain is drawn with an SVG <image>, which Remotion doesn't wait for (it only waits for its
+// own <Img>). Without this, the first frames of a map scene could render before the texture had
+// decoded, showing a flat beige country instead of the relief.
+function useTerrainReady(src: string) {
+  const [handle] = useState(() => delayRender(`Loading terrain ${src}`));
+  useEffect(() => {
+    const img = new Image();
+    img.src = src;
+    img
+      .decode()
+      .catch((err) => console.error(`Couldn't load the terrain texture ${src}`, err))
+      .finally(() => continueRender(handle));
+  }, [src, handle]);
+}
 
 const GLOW_COLOR = "#FFD24A";
 const FILL_COLOR_TOP = "#E8791F";
@@ -47,6 +64,7 @@ export type MapTransitionProps = {
 
 export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, durationInFrames }) => {
   const asset = useAssetUrl();
+  useTerrainReady(staticFile(scene.country.terrainRelPath));
   const frame = useCurrentFrame();
   const { width: fullWidth, height, fps } = useVideoConfig();
   const { toStop, country, currentLeg, priorLegs, closure, travel } = scene;

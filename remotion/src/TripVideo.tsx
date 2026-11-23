@@ -13,6 +13,7 @@ import {
 } from "./timing";
 import type { MapScene, MediaItem, Stop, TripVideoProps } from "./types";
 import { AssetBaseContext, resolveAssetBase } from "./lib/assets";
+import { useBundledFont } from "./lib/fonts";
 
 type TimelineItem =
   | { kind: "title"; durationInFrames: number }
@@ -71,6 +72,7 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
 }
 
 export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase }) => {
+  useBundledFont();
   const timeline = buildTimeline(trip, mapScenes);
 
   let cursor = 0;

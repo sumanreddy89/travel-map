@@ -103,9 +103,11 @@ function offlineBrowser(realPath) {
 function browserLog(attempts) {
   return (log) => {
     const text = `${log.text ?? ""}`;
+    if (process.env.DEMO_DEBUG) console.log(`[browser ${log.type}] ${text.slice(0, 300)}`);
     if (/ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|net::ERR_/.test(text)) attempts.push(`Browser: ${text.slice(0, 200)}`);
     // A frame drawn in a fallback font would look wrong, so a font that never loads fails the demo.
     if (text.includes("Couldn't load the bundled Oswald font")) attempts.push("Browser: the bundled font failed to load");
+    if (text.includes("Couldn't load the terrain texture")) attempts.push(`Browser: ${text.slice(0, 200)}`);
   };
 }
 
@@ -126,7 +128,7 @@ async function setup() {
 function stopIfAnythingWentOut(attempts, files) {
   if (!attempts.length) return;
   for (const f of files) fs.rmSync(f, { force: true });
-  fail(`The demo render went wrong (network use or a missing font):\n  ${[...new Set(attempts)].join("\n  ")}`);
+  fail(`The demo render went wrong (network use, or a font or terrain texture that didn't load):\n  ${[...new Set(attempts)].join("\n  ")}`);
 }
 
 async function prepare() {
