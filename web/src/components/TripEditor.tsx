@@ -53,6 +53,11 @@ export function TripEditor({ tripId, onBack }: Props) {
     await api.updateTrip(tripId, { orientation });
   }
 
+  async function setShowWatermark(showWatermark: boolean) {
+    setTrip((t) => (t ? { ...t, showWatermark } : t));
+    await api.updateTrip(tripId, { showWatermark });
+  }
+
   async function setMusic(music: Trip["music"]) {
     setTrip((t) => (t ? { ...t, music } : t));
     await api.updateTrip(tripId, { music });
@@ -89,6 +94,8 @@ export function TripEditor({ tripId, onBack }: Props) {
         onOrientationChange={setOrientation}
         music={trip.music}
         onMusicChange={setMusic}
+        showWatermark={trip.showWatermark !== false}
+        onShowWatermarkChange={setShowWatermark}
       />
     </div>
   );

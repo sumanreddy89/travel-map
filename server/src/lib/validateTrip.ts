@@ -80,7 +80,7 @@ export function validateStopPatch(body: unknown): Result<StopPatch> {
   return { ok: true, value: patch };
 }
 
-type TripPatch = Partial<Pick<Trip, "title" | "music" | "orientation" | "titleCardNarration">>;
+type TripPatch = Partial<Pick<Trip, "title" | "music" | "orientation" | "titleCardNarration" | "showWatermark">>;
 
 export function validateTripPatch(body: unknown): Result<TripPatch> {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
@@ -93,6 +93,10 @@ export function validateTripPatch(body: unknown): Result<TripPatch> {
   if (b.orientation !== undefined) {
     if (!ORIENTATIONS.includes(b.orientation as Orientation)) return fail(`orientation must be one of: ${ORIENTATIONS.join(", ")}`);
     patch.orientation = b.orientation as Orientation;
+  }
+  if (b.showWatermark !== undefined) {
+    if (typeof b.showWatermark !== "boolean") return fail("showWatermark must be true or false");
+    patch.showWatermark = b.showWatermark;
   }
   if (b.titleCardNarration !== undefined) {
     const r = text(b.titleCardNarration, "titleCardNarration", LIMITS.text, false);

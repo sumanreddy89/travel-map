@@ -14,6 +14,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { fontFamily } from "../lib/fonts";
+import { getLayout } from "../lib/layout";
 import { buildProjection, geometryToPath, paddedPointBbox, type Bbox } from "../lib/projection";
 import {
   cumulativeLengths,
@@ -24,6 +25,7 @@ import {
   type Point,
 } from "../lib/polyline";
 import { MediaKenBurns } from "../components/MediaKenBurns";
+import { OsmCredit } from "../components/Credit";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
 
@@ -73,10 +75,10 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   const hasMedia = media.length > 0;
   const panelWidth = hasMedia ? Math.round(fullWidth * PANEL_WIDTH_RATIO) : 0;
   const width = fullWidth - panelWidth;
-  // Fixed pixel sizes (fonts, strokes, pins) below were tuned against a
-  // 1920px-wide landscape canvas - scale them so a 1080px portrait export
-  // doesn't end up with oversized text/markers relative to the frame.
-  const scale = fullWidth / 1920;
+  // Sizes below were tuned on 1920x1080; lib/layout.ts gives portrait its own readable sizes and
+  // safe margins. `scale` sizes pins, strokes and map labels.
+  const layout = getLayout(fullWidth, height);
+  const scale = layout.mark;
 
   // Every point involved in this scene - all the already-visited stops from
   // earlier legs in this country visit, plus this scene's own leg - so the
@@ -111,8 +113,9 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   );
 
   const projection = useMemo(
-    () => buildProjection(viewBbox, width, height, 140 * scale),
-    [viewBbox, width, height, scale]
+    () => buildProjection(viewBbox, width, height, layout.mapPadding),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- layout is derived from width/height
+    [viewBbox, width, height, fullWidth]
   );
 
   const countryPathD = useMemo(() => geometryToPath(projection, country.countryGeometry), [projection, country]);
@@ -319,11 +322,13 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
       <div
         style={{
           position: "absolute",
-          top: 64 * scale,
-          left: 72 * scale,
+          // Portrait: below the TravelMap credit, which sits at the top of the safe area.
+          top: layout.portrait ? layout.safe.top + 70 * layout.text : layout.safe.top,
+          left: layout.safe.left,
+          right: layout.safe.right,
           display: "flex",
           alignItems: "center",
-          gap: 18 * scale,
+          gap: 18 * layout.text,
         }}
       >
         <div
@@ -331,8 +336,8 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             color: "white",
             fontFamily,
             fontWeight: 700,
-            fontSize: 56 * scale,
-            letterSpacing: 4 * scale,
+            fontSize: 56 * layout.text,
+            letterSpacing: 4 * layout.text,
             textTransform: "uppercase",
             textShadow: "0 2px 18px rgba(0,0,0,0.6)",
             opacity: titleIn,
@@ -396,6 +401,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         </div>
       )}
 
+      {[...priorLegs, ...(currentLeg ? [currentLeg] : [])].some((leg) => (leg.routeCoords?.length ?? 0) > 1) && <OsmCredit />}
       {closure?.audioPath && <Audio src={asset(closure.audioPath)} />}
       {travel?.audioPath && <Audio src={asset(travel.audioPath)} />}
     </AbsoluteFill>

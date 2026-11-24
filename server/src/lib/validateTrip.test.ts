@@ -61,3 +61,12 @@ test("a trip patch checks orientation, music and narration", () => {
   bad(validateTripPatch({ titleCardNarration: "x".repeat(2001) }));
   assert.deepEqual(ok(validateTripPatch({})), {});
 });
+
+test("the TravelMap credit setting must be true or false", () => {
+  assert.deepEqual(ok(validateTripPatch({ showWatermark: false })), { showWatermark: false });
+  assert.deepEqual(ok(validateTripPatch({ showWatermark: true })), { showWatermark: true });
+  assert.deepEqual(ok(validateTripPatch({})), {}, "absent stays absent, which means shown");
+  bad(validateTripPatch({ showWatermark: "no" }));
+  bad(validateTripPatch({ showWatermark: 0 }));
+  bad(validateTripPatch({ showWatermark: null }));
+});

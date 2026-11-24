@@ -55,11 +55,12 @@ tripsRouter.put("/:id", async (req, res) => {
     return;
   }
   try {
-    const { title, music, orientation, titleCardNarration } = checked.value;
+    const { title, music, orientation, titleCardNarration, showWatermark } = checked.value;
     const trip = await updateTrip(req.params.id, (trip) => {
       if (title !== undefined) trip.title = title;
       if (music !== undefined) trip.music = music;
       if (orientation !== undefined) trip.orientation = orientation;
+      if (showWatermark !== undefined) trip.showWatermark = showWatermark;
       if (titleCardNarration !== undefined && titleCardNarration !== trip.titleCardNarration) {
         trip.titleCardNarration = titleCardNarration;
         // text changed - the previously recorded audio no longer matches it

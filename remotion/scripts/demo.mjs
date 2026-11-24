@@ -18,6 +18,14 @@ const DOCS = path.join(ROOT, "docs", "demo");
 const PROPS = path.join(REMOTION, "src", "demo", "demoProps.json");
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
+// --orientation landscape (default) | portrait. Same composition and trip; only the frame changes.
+function orientationArg() {
+  const i = process.argv.indexOf("--orientation");
+  const value = i === -1 ? "landscape" : process.argv[i + 1];
+  if (value !== "landscape" && value !== "portrait") fail(`--orientation must be landscape or portrait, not "${value}"`);
+  return value;
+}
+
 // Frames for the README stills, picked from the rendered demo (30fps). Re-pick them if the demo
 // trip or its timing changes: open the MP4 and note the frame numbers.
 const STILLS = [
@@ -112,7 +120,9 @@ function browserLog(attempts) {
 }
 
 async function setup() {
-  const props = checkDemoFiles();
+  const base = checkDemoFiles();
+  const orientation = orientationArg();
+  const props = { ...base, trip: { ...base.trip, orientation } };
   const real = await browserPath(false);
   const attempts = [];
   blockNetwork(attempts);
@@ -122,7 +132,7 @@ async function setup() {
   const serveUrl = await bundle({ entryPoint: path.join(REMOTION, "src", "index.ts") });
   const browserExecutable = offlineBrowser(real);
   const composition = await selectComposition({ serveUrl, id: "TripVideo", inputProps: props, browserExecutable, onBrowserLog: browserLog(attempts) });
-  return { props, attempts, serveUrl, browserExecutable, composition };
+  return { props, attempts, serveUrl, browserExecutable, composition, orientation };
 }
 
 function stopIfAnythingWentOut(attempts, files) {
@@ -140,9 +150,9 @@ async function prepare() {
 }
 
 async function render() {
-  const { attempts, serveUrl, browserExecutable, composition } = await setup();
+  const { attempts, serveUrl, browserExecutable, composition, orientation } = await setup();
   const { renderMedia } = await import("@remotion/renderer");
-  const out = path.join(OUT, "demo-landscape.mp4");
+  const out = path.join(OUT, `demo-${orientation}.mp4`);
   console.log(`Rendering ${composition.durationInFrames} frames (${(composition.durationInFrames / composition.fps).toFixed(1)}s) with the network blocked...`);
   let last = -1;
   await renderMedia({
@@ -160,12 +170,13 @@ async function render() {
 }
 
 async function stills() {
-  const { attempts, serveUrl, browserExecutable, composition } = await setup();
+  const { attempts, serveUrl, browserExecutable, composition, orientation } = await setup();
   const { renderStill } = await import("@remotion/renderer");
   fs.mkdirSync(DOCS, { recursive: true });
   const written = [];
   for (const s of STILLS) {
-    const output = path.join(DOCS, s.file);
+    // Portrait stills sit beside the landscape ones: portrait-poster.jpg and so on.
+    const output = path.join(DOCS, orientation === "portrait" ? `portrait-${s.file}` : s.file);
     await renderStill({
       composition, serveUrl, frame: s.frame, output, inputProps: composition.props, browserExecutable,
       imageFormat: "jpeg", jpegQuality: 82, scale: 2 / 3, onBrowserLog: browserLog(attempts),
