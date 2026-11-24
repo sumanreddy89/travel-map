@@ -74,6 +74,8 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
 
 export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase }) => {
   useBundledFont();
+  // Each stop's country, from the map scene that arrives there (closures recap, so they're skipped).
+  const countryOf = new Map(mapScenes.filter((s) => !s.closure).map((s) => [s.toStop.id, s.country.name]));
   const timeline = buildTimeline(trip, mapScenes);
 
   let cursor = 0;
@@ -99,7 +101,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
     }
     return (
       <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name={`Stop: ${item.stop.name}`}>
-        <StopContent stop={item.stop} />
+        <StopContent stop={item.stop} country={countryOf.get(item.stop.id)} />
       </Sequence>
     );
   });
