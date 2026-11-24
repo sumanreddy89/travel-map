@@ -5,12 +5,16 @@ import { getLayout } from "../lib/layout";
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import type { Stop } from "../types";
 
-
 export type StopContentProps = {
   stop: Stop;
+  // The country the stop is in, from its map scene. Shown with the date so a cross-border trip is
+  // never ambiguous (Porto on the edge of a Spain-shaped map read as being in Spain).
+  country?: string;
 };
 
-export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
+const CROSSFADE = 12; // frames
+
+export const StopContent: React.FC<StopContentProps> = ({ stop, country }) => {
   const asset = useAssetUrl();
   const { durationInFrames, width, height } = useVideoConfig();
   const frame = useCurrentFrame();
@@ -32,11 +36,18 @@ export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0704" }}>
-      {media.map((item, i) => (
-        <Sequence key={item?.id ?? `blank-${i}`} from={i * perItem} durationInFrames={perItem} name={item?.path ?? "no-media"}>
-          <MediaKenBurns item={item} durationInFrames={perItem} />
-        </Sequence>
-      ))}
+      {media.map((item, i) => {
+        // Each photo but the last runs CROSSFADE frames into the next, which fades in on top, so
+        // photos dissolve into each other instead of dipping to black. The last photo takes any
+        // leftover frames, so the stop's slides always fill it exactly.
+        const last = i === media.length - 1;
+        const length = last ? durationInFrames - i * perItem : perItem + CROSSFADE;
+        return (
+          <Sequence key={item?.id ?? `blank-${i}`} from={i * perItem} durationInFrames={length} name={item?.path ?? "no-media"}>
+            <MediaKenBurns item={item} durationInFrames={length} fadeOut={last} />
+          </Sequence>
+        );
+      })}
 
       <AbsoluteFill
         style={{
@@ -59,9 +70,9 @@ export const StopContent: React.FC<StopContentProps> = ({ stop }) => {
         <div style={{ fontSize: 52 * scale, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>
           {stop.name}
         </div>
-        {stop.date && (
+        {(country || stop.date) && (
           <div style={{ fontSize: 24 * scale, opacity: 0.85, marginTop: 4 * scale, fontWeight: 400 }}>
-            {stop.date}
+            {[country, stop.date].filter(Boolean).join(" · ")}
           </div>
         )}
         {stop.notes && (

@@ -8,6 +8,8 @@ export type MediaKenBurnsProps = {
   durationInFrames: number;
   zoomTo?: number;
   panXTo?: number;
+  /** False for a slide the next one crossfades over, so the stop never dips to black between photos. */
+  fadeOut?: boolean;
 };
 
 // Ken Burns pan/zoom for a single photo/video slide. Takes the slide's own
@@ -20,6 +22,7 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
   durationInFrames,
   zoomTo = 1.12,
   panXTo = -18,
+  fadeOut = true,
 }) => {
   const asset = useAssetUrl();
   const frame = useCurrentFrame();
@@ -34,10 +37,12 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
   });
   const fade = Math.min(
     interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-    interpolate(frame, [durationInFrames - 10, durationInFrames], [1, 0], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    })
+    fadeOut
+      ? interpolate(frame, [durationInFrames - 10, durationInFrames], [1, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 1
   );
 
   if (!item) {

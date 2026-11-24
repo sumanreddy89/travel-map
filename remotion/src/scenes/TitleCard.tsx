@@ -4,7 +4,6 @@ import { fontFamily } from "../lib/fonts";
 import { getLayout } from "../lib/layout";
 import type { Trip } from "../types";
 
-
 const GLOW_COLOR = "#FFD24A";
 
 export type TitleCardProps = {

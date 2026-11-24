@@ -28,7 +28,6 @@ import { MediaKenBurns } from "../components/MediaKenBurns";
 import { OsmCredit } from "../components/Credit";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
-
 // The terrain is drawn with an SVG <image>, which Remotion doesn't wait for (it only waits for its
 // own <Img>). Without this, the first frames of a map scene could render before the texture had
 // decoded, showing a flat beige country instead of the relief.
