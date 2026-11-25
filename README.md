@@ -1,46 +1,56 @@
 # TravelMap
 
-Turn a route of places (with your own photos/videos) into a Globe Trekker-style
-travel video: an animated, glowing map traces the route between stops, cutting
-to your media at each destination with AI-written narration.
+**Paste your cities, get your year film.** An animated map flies your year, city by city, by plane, train or car. It opens by counting up your countries, cities, kilometres and flights, and ends on a card you can share. Open source, no API keys.
+
+[![A year in travel: Lisbon to Prague on the amber terrain map](docs/demo/year-finale.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-year-landscape.mp4)
+
+*Sample year: Lisbon → Madrid → Barcelona → Paris → Amsterdam → Berlin → Prague (48s, with music). [Landscape](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-year-landscape.mp4) · [portrait, for phones](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-year-portrait.mp4) · [16-second vertical clip](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-year-reels.mp4)*
+
+| It counts your year up | Then flies it | And ends on a card to share |
+|---|---|---|
+| ![The opener: 6 countries, 7 cities, 3,125 km, 2 flights](docs/demo/year-opener.jpg) | ![The whole year on one map](docs/demo/year-finale.jpg) | <img src="docs/demo/year-share-portrait.jpg" alt="The share card in portrait" width="140"> |
+
+### Try it: no keys, no map download
+
+```bash
+npm ci
+npm run demo:prepare                                                   # one-time headless browser download
+node remotion/scripts/demo.mjs render --trip year --orientation portrait   # out/demo-year-portrait.mp4
+```
+
+Leave out `--orientation portrait` for landscape. The sample year is checked in and renders with the network blocked.
+
+### Your own year: no keys
+
+Write one city per line, in the order you went: `city | date | how you got there` (plane, train or car; plane if left out). Add a country when a name is ambiguous (`Valencia, ES`).
+
+```text
+Lisbon | 2026-02-14
+Madrid | 2026-03-20 | plane
+Barcelona | 2026-04-02 | train
+```
+
+```bash
+npm run year -- my-year.txt --orientation portrait   # out/year-2026-portrait.mp4
+```
+
+Cities come from a bundled list of about 1,250 major cities, English names included ([Natural Earth](https://www.naturalearthdata.com/), public domain), so nothing is looked up online. A line it can't read is reported with its line number and what to change. The map needs the one-time [cartography download](#cartography-data-one-time-not-in-the-repo---600mb-raw) (no keys); road routes for car and train legs come from the public OSRM server while the map is prepared. There's also an API: `POST /api/trips/year` with `{"text": "..."}`.
+
+**Don't want to set anything up?** A hosted version is being considered. [Join the waitlist](https://sumanreddy89.github.io/travel-map/hosted/) if you'd use it.
+
+## Trip films: your photos at every stop
+
+For a single trip, TravelMap cuts from the map to your own photos and videos at each stop, with AI-written narration.
 
 [![Porto to Palma: the whole route on the amber terrain map](docs/demo/poster.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4)
 
-*The demo film, "Porto to Palma" (50s, 1920×1080, silent): by car, train and plane. Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4) (48MB; [portrait version](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-portrait.mp4), 39MB). Or render it yourself in a few minutes with the commands below.*
-
-**Don't want to set anything up?** A hosted version (paste a trip, get the MP4) is being considered. [Join the waitlist](https://sumanreddy89.github.io/travel-map/hosted/) if you'd use it.
+*The trip demo, "Porto to Palma" (50s, with music): by car, train and plane. [Landscape](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4) · [portrait](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-portrait.mp4). Render it yourself, keyless: `npm run demo:render` (add `-- --orientation portrait` for phones).*
 
 | The route draws itself | Then your photos at each stop | Portrait, for phones |
 |---|---|---|
 | ![The plane leaving Madrid for Palma](docs/demo/map-frame.jpg) | ![Porto, with its caption](docs/demo/photo-frame.jpg) | <img src="docs/demo/portrait-photo-frame.jpg" alt="The Porto stop in portrait" width="140"> |
 
-### Try it: no API keys, no map download
-
-```bash
-npm ci
-npm run demo:prepare   # one-time headless browser download
-npm run demo:render    # out/demo-landscape.mp4
-```
-
-Add `-- --orientation portrait` to either command for the 1080×1920 phone version. The demo renders a checked-in, illustrative trip with the network blocked. Photo and map sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: [docs/demo/README.md](docs/demo/README.md).
-
-### Year in travel
-
-A recap film of your year: it opens by counting up your countries, cities, kilometres and flights, flies the whole route, and ends on a share card with the same numbers. Try the sample year, also keyless and offline:
-
-```bash
-node remotion/scripts/demo.mjs render --trip year                         # out/demo-year-landscape.mp4
-node remotion/scripts/demo.mjs render --trip year --orientation portrait  # out/demo-year-portrait.mp4
-```
-
-For your own year, with the server running (see below), paste one city per line, in order: `city | date | how you got there` (plane, train or car; plane if left out). Add a country when a name is ambiguous (`Valencia, ES`). The year comes from your dates, or a first line like `year: 2026`.
-
-```bash
-curl -s localhost:4000/api/trips/year -H 'content-type: application/json' \
-  -d '{"text": "Lisbon | 2026-02-14\nMadrid | 2026-03-20 | plane\nBarcelona | 2026-04-02 | train"}'
-```
-
-Cities are matched against a bundled list of about 1,250 major cities ([Natural Earth](https://www.naturalearthdata.com/), public domain; `server/places/cities.json`), so nothing is looked up online. A line it can't read comes back as an error naming the line. Year films have no narration or voiceover, so they need no API keys beyond the map data.
+Photo, map and music sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: [docs/demo/README.md](docs/demo/README.md).
 
 ## Full workflow: your own trips
 

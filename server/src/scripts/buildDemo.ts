@@ -32,7 +32,9 @@ async function loadYearTrip(): Promise<Trip> {
   if (!parsed.ok) throw new Error(`demo-source/year.txt: ${parsed.error}`);
   let n = 0;
   const fields = yearTripFields(parsed.value, () => `demo-y${String(++n).padStart(2, "0")}`);
-  return { id: "demo-year0", createdAt: FIXED_TIME, updatedAt: FIXED_TIME, orientation: "landscape", ...fields };
+  // Same music as the trip demo (see NOTICE.md for its terms).
+  const music = JSON.parse(await fs.readFile(SOURCE, "utf-8")).music;
+  return { id: "demo-year0", createdAt: FIXED_TIME, updatedAt: FIXED_TIME, orientation: "landscape", ...fields, ...(music ? { music } : {}) };
 }
 
 async function main() {

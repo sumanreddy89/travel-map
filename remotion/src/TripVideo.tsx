@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Loop, Sequence, staticFile } from "remotion";
+import { AbsoluteFill, Audio, Loop, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { MapTransition } from "./scenes/MapTransition";
 import { StopContent } from "./scenes/StopContent";
 import { TitleCard } from "./scenes/TitleCard";
@@ -111,6 +111,13 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
 }
 
 export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase }) => {
+  // Music fades in over 1 s and out over the last 2 s, so the film doesn't end mid-note.
+  const frame = useCurrentFrame();
+  const totalFrames = computeTotalDurationInFrames(trip, mapScenes);
+  const musicFade = Math.min(
+    interpolate(frame, [0, FPS], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+    interpolate(frame, [totalFrames - 2 * FPS, totalFrames], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+  );
   useBundledFont();
   // Each stop's country, from the map scene that arrives there (closures recap, so they're skipped).
   const countryOf = new Map(mapScenes.filter((s) => !s.closure).map((s) => [s.toStop.id, s.country.name]));
@@ -195,7 +202,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {trip.music && (
         <Loop durationInFrames={Math.max(1, secToFrames(trip.music.durationSec ?? 30))}>
-          <Audio src={staticFile(trip.music.path)} volume={() => trip.music?.volume ?? 1} />
+          <Audio src={staticFile(trip.music.path)} volume={() => (trip.music?.volume ?? 1) * musicFade} />
         </Loop>
       )}
       {items}

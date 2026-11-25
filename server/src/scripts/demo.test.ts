@@ -30,7 +30,9 @@ test("the demo has no voiceover files and no web addresses to fetch", () => {
   const raw = JSON.stringify(props);
   assert.doesNotMatch(raw, /https?:\/\//);
   assert.doesNotMatch(raw, /"(audioPath|titleCardAudioPath|travelAudioPath|closureAudioPath)"/);
-  assert.equal(props.trip.music, undefined, "no music: none is licensed for redistribution");
+  // The one track in the repo, included with its owner's permission for the demo only (NOTICE.md).
+  assert.equal(props.trip.music?.path, "demo/music/the-winding-path-travel.mp3");
+  assert.ok(exists(props.trip.music.path), "the demo track is checked in");
 });
 
 test("scenes never fetch fonts from the web", () => {
