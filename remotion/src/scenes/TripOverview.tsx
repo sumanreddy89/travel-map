@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { getLayout } from "../lib/layout";
+import { MOTION } from "../lib/motion";
 import { useTerrainReady } from "../lib/terrain";
 import { buildProjection, geometryToPath, unionBbox, type Bbox } from "../lib/projection";
 import { cumulativeLengths, pointsToPath, quadraticBezierPoints, truncatedPath, type Point } from "../lib/polyline";
@@ -14,7 +15,7 @@ export type TripOverviewData = { countries: OverviewCountry[]; legs: RouteLeg[];
 
 const GLOW_COLOR = "#FFD24A";
 const LINE_COLOR = "#FBEFDD";
-const PULL_BACK_FROM = 1.12;
+
 
 // Countries, legs and stops in trip order, each once, from the map scenes.
 export function tripOverview(mapScenes: MapScene[]): TripOverviewData | null {
@@ -70,7 +71,7 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
     extrapolateRight: "clamp",
     easing: Easing.inOut(Easing.cubic),
   });
-  const zoom = interpolate(frame, [0, durationInFrames], [PULL_BACK_FROM, 1], {
+  const zoom = interpolate(frame, [0, durationInFrames], [MOTION.opener.pullBackFrom, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.quad),
