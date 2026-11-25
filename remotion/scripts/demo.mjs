@@ -15,7 +15,9 @@ const REMOTION = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const ROOT = path.resolve(REMOTION, "..");
 const OUT = path.join(ROOT, "out");
 const DOCS = path.join(ROOT, "docs", "demo");
-const PROPS = path.join(REMOTION, "src", "demo", "demoProps.json");
+// --trip year renders the "Year in travel" demo (yearDemoProps.json) instead of the trip demo.
+const YEAR = process.argv.includes("--trip") && process.argv[process.argv.indexOf("--trip") + 1] === "year";
+const PROPS = path.join(REMOTION, "src", "demo", YEAR ? "yearDemoProps.json" : "demoProps.json");
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 // --orientation landscape (default) | portrait. Same composition and trip; only the frame changes.
@@ -152,7 +154,7 @@ async function prepare() {
 async function render() {
   const { attempts, serveUrl, browserExecutable, composition, orientation } = await setup();
   const { renderMedia } = await import("@remotion/renderer");
-  const out = path.join(OUT, `demo-${orientation}.mp4`);
+  const out = path.join(OUT, `demo-${YEAR ? "year-" : ""}${orientation}.mp4`);
   console.log(`Rendering ${composition.durationInFrames} frames (${(composition.durationInFrames / composition.fps).toFixed(1)}s) with the network blocked...`);
   let last = -1;
   await renderMedia({
@@ -170,6 +172,7 @@ async function render() {
 }
 
 async function stills() {
+  if (YEAR) fail("demo:stills makes the README stills from the trip demo; leave out --trip year.");
   const { attempts, serveUrl, browserExecutable, composition, orientation } = await setup();
   const { renderStill } = await import("@remotion/renderer");
   fs.mkdirSync(DOCS, { recursive: true });

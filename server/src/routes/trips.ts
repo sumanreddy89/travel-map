@@ -12,6 +12,7 @@ import {
   updateTrip,
 } from "../lib/tripStore.js";
 import { validateIdParam } from "../lib/validateId.js";
+import { parseYearInput, yearTripFields } from "../lib/yearInput.js";
 import { validateNewStop, validateStopPatch, validateTitle, validateTripPatch } from "../lib/validateTrip.js";
 import { DATA_DIR } from "../config.js";
 import { detectMedia } from "../lib/mediaType.js";
@@ -38,6 +39,24 @@ tripsRouter.post("/", async (req, res) => {
   }
   const trip = await createTrip(title.value);
   res.status(201).json(trip);
+});
+
+// "Year in travel": paste an ordered list of cities (see lib/yearInput.ts for the format) and
+// get a trip whose film opens with the year's stats. A malformed line is a 400 naming the line.
+tripsRouter.post("/year", async (req, res) => {
+  const parsed = parseYearInput(req.body?.text);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const fields = yearTripFields(parsed.value, () => nanoid(10));
+  const trip = await createTrip(fields.title);
+  const saved = await updateTrip(trip.id, (t) => {
+    t.stops = fields.stops;
+    t.yearInTravel = fields.yearInTravel;
+    return t;
+  });
+  res.status(201).json(saved);
 });
 
 tripsRouter.get("/:id", async (req, res) => {

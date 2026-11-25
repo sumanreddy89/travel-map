@@ -4,6 +4,8 @@ import { StopContent } from "./scenes/StopContent";
 import { TitleCard } from "./scenes/TitleCard";
 import { TripOverview, tripOverview } from "./scenes/TripOverview";
 import { EndCard } from "./scenes/EndCard";
+import { ShareCard, YearOpener } from "./scenes/YearCards";
+import { yearStats } from "./lib/yearStats";
 import { MOTION } from "./lib/motion";
 import { SHOW_MEDIA_PANEL_IN_MAP_SCENES } from "./config";
 import {
@@ -24,7 +26,9 @@ type TimelineItem =
   | { kind: "map"; scene: MapScene; media: MediaItem[]; durationInFrames: number }
   | { kind: "stop"; stop: Stop; durationInFrames: number }
   | { kind: "finale"; durationInFrames: number }
-  | { kind: "end"; durationInFrames: number };
+  | { kind: "end"; durationInFrames: number }
+  | { kind: "yearOpener"; durationInFrames: number }
+  | { kind: "share"; durationInFrames: number };
 
 // Shared by both the component and calculateMetadata so the two can never
 // disagree on total length. mapScenes is already in chronological order,
@@ -33,13 +37,22 @@ type TimelineItem =
 // scene with its stop's content, and drops closures in wherever they land
 // (mid-trip on a country change, or trailing at the very end).
 function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["mapScenes"]): TimelineItem[] {
+  // A "Year in travel" film: the stats opener instead of the title, no per-country recaps (the
+  // finale is the recap), no photo scenes for stops without photos, and a share card at the end.
+  const year = Boolean(trip.yearInTravel);
   const items: TimelineItem[] = [
-    { kind: "title", durationInFrames: secToFrames(titleCardDurationSec(trip)) },
+    year
+      ? { kind: "yearOpener", durationInFrames: MOTION.year.openerFrames }
+      : { kind: "title", durationInFrames: secToFrames(titleCardDurationSec(trip)) },
   ];
   let mi = 0;
 
   const pushClosures = () => {
     while (mi < mapScenes.length && mapScenes[mi].closure) {
+      if (year) {
+        mi++;
+        continue;
+      }
       const scene = mapScenes[mi];
       items.push({
         kind: "map",
@@ -69,7 +82,9 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
       });
     }
 
-    items.push({ kind: "stop", stop, durationInFrames: secToFrames(stopSceneDurationSec(stop)) });
+    if (!year || stop.media.length > 0) {
+      items.push({ kind: "stop", stop, durationInFrames: secToFrames(stopSceneDurationSec(stop)) });
+    }
   }
 
   pushClosures(); // trailing closure for the last country visited
@@ -77,7 +92,7 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
   // After the last leg: ease out to the whole route and hold (MOTION.finale), then the end card.
   if (mapScenes.length > 0) {
     items.push({ kind: "finale", durationInFrames: MOTION.finale.easeOutFrames + MOTION.finale.holdFrames });
-    items.push({ kind: "end", durationInFrames: MOTION.finale.endCardFrames });
+    items.push(year ? { kind: "share", durationInFrames: MOTION.year.shareCardFrames } : { kind: "end", durationInFrames: MOTION.finale.endCardFrames });
   }
 
   return items;
@@ -93,6 +108,11 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
   const tripCountries = [...new Map(mapScenes.map((s) => [s.country.iso, { iso: s.country.iso, geometry: s.country.countryGeometry }])).values()];
 
   const overview = tripOverview(mapScenes);
+  // The year's numbers: each stop's country from its map scene, and how it was reached from its leg.
+  const legModeOf = new Map(mapScenes.filter((s) => s.currentLeg).map((s) => [s.toStop.id, s.currentLeg!.mode]));
+  const stats = trip.yearInTravel
+    ? yearStats(trip.stops.map((s) => ({ name: s.name, lat: s.lat, lng: s.lng, country: countryOf.get(s.id), mode: legModeOf.get(s.id) })))
+    : null;
 
   let cursor = 0;
   const items = timeline.map((item, i) => {
@@ -114,6 +134,20 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
         </Sequence>
       );
     }
+    if (item.kind === "yearOpener" && stats && trip.yearInTravel) {
+      return (
+        <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Year opener">
+          <YearOpener year={trip.yearInTravel.year} stats={stats} />
+        </Sequence>
+      );
+    }
+    if (item.kind === "share" && stats && trip.yearInTravel) {
+      return (
+        <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Share card">
+          <ShareCard year={trip.yearInTravel.year} stats={stats} stops={trip.stops.map((s) => s.name)} />
+        </Sequence>
+      );
+    }
     if (item.kind === "end") {
       return (
         <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="End card">
@@ -121,7 +155,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
         </Sequence>
       );
     }
-    if (item.kind === "finale") return null;
+    if (item.kind === "finale" || item.kind === "yearOpener" || item.kind === "share") return null;
 
     if (item.kind === "map") {
       const name = item.scene.closure ? `Closure: ${item.scene.country.name}` : `Map: ${item.scene.toStop.name}`;

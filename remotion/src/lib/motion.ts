@@ -18,6 +18,9 @@ export const MOTION = {
   camera: { push: 1.22, drift: 0.35 }, // map scenes push in on the leg; closures pull back
   opener: { pullBackFrom: 1.12 },
   finale: { zoomFrom: 1.3, easeOutFrames: 36, holdFrames: 45, endCardFrames: 75 },
+  // "Year in travel": the stats opener counts each number up in turn, then holds; the share card
+  // closes the film.
+  year: { titleInFrames: 12, countUpFrames: 36, staggerFrames: 8, openerFrames: 120, shareCardFrames: 120 },
 } as const;
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -37,4 +40,10 @@ export function labelMotion(frame: number, popAt: number): { opacity: number; dy
   const start = popAt + MOTION.label.delayFrames;
   const t = interpolate(frame, [start, start + MOTION.label.fadeFrames], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   return { opacity: t, dy: (1 - t) * MOTION.label.risePx };
+}
+
+// A stat counting up from 0 to `value`, starting at `start`, easing out so it settles gently.
+export function countUp(frame: number, start: number, value: number): number {
+  const t = interpolate(frame, [start, start + MOTION.year.countUpFrames], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  return Math.round(value * t);
 }
