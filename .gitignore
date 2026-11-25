@@ -19,3 +19,4 @@ remotion/public/data
 # Original music tracks - not licensed for redistribution, see NOTICE.md.
 # Kept locally; drop your own file(s) here to enable the music picker.
 remotion/public/music/
+_site/
