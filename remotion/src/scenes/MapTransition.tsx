@@ -338,6 +338,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             scale={scale}
             opacity={travelerFade}
             pulse={travelerPulse}
+            size={layout.portrait ? MOTION.vehicle.size.portrait : MOTION.vehicle.size.landscape}
           />
         )}
 

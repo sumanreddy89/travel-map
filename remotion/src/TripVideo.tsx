@@ -17,7 +17,7 @@ import {
   titleCardDurationSec,
 } from "./timing";
 import type { MapScene, MediaItem, Stop, TripVideoProps } from "./types";
-import { AssetBaseContext, resolveAssetBase } from "./lib/assets";
+import { AssetBaseContext, assetUrl, resolveAssetBase } from "./lib/assets";
 import { useBundledFont } from "./lib/fonts";
 import { Credit } from "./components/Credit";
 
@@ -25,7 +25,7 @@ type TimelineItem =
   | { kind: "title"; durationInFrames: number }
   | { kind: "map"; scene: MapScene; media: MediaItem[]; durationInFrames: number }
   | { kind: "stop"; stop: Stop; durationInFrames: number }
-  | { kind: "finale"; durationInFrames: number }
+  | { kind: "finale"; durationInFrames: number; audioPath?: string }
   | { kind: "end"; durationInFrames: number }
   | { kind: "yearOpener"; durationInFrames: number }
   | { kind: "share"; durationInFrames: number };
@@ -87,11 +87,23 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
     }
   }
 
-  pushClosures(); // trailing closure for the last country visited
+  // The last country's recap and the finale would both pull back over the route, one after the
+  // other. With a finale, the finale is the recap: it takes over the recap's closing line (and
+  // runs long enough for it), and the recap scene is dropped.
+  const trailing = mapScenes.length > 0 ? mapScenes.slice(mi).filter((s) => s.closure) : [];
+  const lastRecap = trailing[trailing.length - 1];
+  if (lastRecap) mapScenes = mapScenes.slice(0, mapScenes.length - 1);
+  pushClosures(); // any other trailing recap
 
   // After the last leg: ease out to the whole route and hold (MOTION.finale), then the end card.
-  if (mapScenes.length > 0) {
-    items.push({ kind: "finale", durationInFrames: MOTION.finale.easeOutFrames + MOTION.finale.holdFrames });
+  if (mapScenes.length > 0 || lastRecap) {
+    const finaleFrames = MOTION.finale.easeOutFrames + MOTION.finale.holdFrames;
+    const audioSec = lastRecap?.closure?.audioPath ? lastRecap.closure.audioDurationSec : undefined;
+    items.push({
+      kind: "finale",
+      durationInFrames: audioSec ? Math.max(finaleFrames, secToFrames(audioSec + 1)) : finaleFrames,
+      audioPath: lastRecap?.closure?.audioPath,
+    });
     items.push(year ? { kind: "share", durationInFrames: MOTION.year.shareCardFrames } : { kind: "end", durationInFrames: MOTION.finale.endCardFrames });
   }
 
@@ -105,7 +117,12 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
   const timeline = buildTimeline(trip, mapScenes);
   // Every country the trip visits, once each, so a map scene can show its neighbours on the route
   // (Porto's Portugal next to Spain) instead of leaving them as empty dark space.
-  const tripCountries = [...new Map(mapScenes.map((s) => [s.country.iso, { iso: s.country.iso, geometry: s.country.countryGeometry }])).values()];
+  const tripCountries = [
+    ...new Map([
+      ...mapScenes.flatMap((s) => (s.transitCountries ?? []).map((t) => [t.iso, { iso: t.iso, geometry: t.countryGeometry }] as const)),
+      ...mapScenes.map((s) => [s.country.iso, { iso: s.country.iso, geometry: s.country.countryGeometry }] as const),
+    ]).values(),
+  ];
 
   const overview = tripOverview(mapScenes);
   // The year's numbers: each stop's country from its map scene, and how it was reached from its leg.
@@ -131,6 +148,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
       return (
         <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Finale">
           <TripOverview {...overview} durationInFrames={item.durationInFrames} variant="finale" />
+          {item.audioPath && <Audio src={assetUrl(resolveAssetBase(assetBase), item.audioPath)} />}
         </Sequence>
       );
     }

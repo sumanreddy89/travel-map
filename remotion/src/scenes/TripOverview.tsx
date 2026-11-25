@@ -18,7 +18,7 @@ import type { MapScene, RouteLeg, RouteStopPoint } from "../types";
 //   cut off in portrait or landscape), then holds.
 
 export type OverviewCountry = Pick<MapScene["country"], "iso" | "bbox" | "imageBbox" | "terrainRelPath" | "countryGeometry">;
-export type TripOverviewData = { countries: OverviewCountry[]; legs: RouteLeg[]; stops: RouteStopPoint[] };
+export type TripOverviewData = { countries: OverviewCountry[]; legs: RouteLeg[]; stops: RouteStopPoint[]; transit?: { iso: string; countryGeometry: GeoJSON.Geometry }[] };
 
 const GLOW_COLOR = "#FFD24A";
 const LINE_COLOR = "#FBEFDD";
@@ -29,7 +29,9 @@ export function tripOverview(mapScenes: MapScene[]): TripOverviewData | null {
   const countries = new Map<string, OverviewCountry>();
   const legs = new Map<string, RouteLeg>();
   const stops = new Map<string, RouteStopPoint>();
+  const transit = new Map<string, { iso: string; countryGeometry: GeoJSON.Geometry }>();
   for (const s of mapScenes) {
+    for (const t of s.transitCountries ?? []) if (!transit.has(t.iso)) transit.set(t.iso, t);
     if (!countries.has(s.country.iso)) countries.set(s.country.iso, s.country);
     if (s.closure) continue;
     if (s.currentLeg) {
@@ -38,13 +40,15 @@ export function tripOverview(mapScenes: MapScene[]): TripOverviewData | null {
     }
     if (!stops.has(s.toStop.id)) stops.set(s.toStop.id, s.toStop);
   }
-  return countries.size ? { countries: [...countries.values()], legs: [...legs.values()], stops: [...stops.values()] } : null;
+  for (const iso of countries.keys()) transit.delete(iso);
+  return countries.size ? { countries: [...countries.values()], legs: [...legs.values()], stops: [...stops.values()], transit: [...transit.values()] } : null;
 }
 
 export const TripOverview: React.FC<TripOverviewData & { durationInFrames: number; variant?: "opener" | "finale" }> = ({
   countries,
   legs,
   stops,
+  transit = [],
   durationInFrames,
   variant = "opener",
 }) => {
@@ -70,6 +74,7 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
     [countries, stops, legs, finale, width, height]
   );
   const shapes = useMemo(() => countries.map((c) => ({ c, d: geometryToPath(projection, c.countryGeometry) })), [countries, projection]);
+  const transitShapes = useMemo(() => transit.map((t) => geometryToPath(projection, t.countryGeometry)), [transit, projection]);
 
   const route = useMemo(() => {
     const pt = (p: RouteStopPoint) => (projection([p.lng, p.lat]) ?? [width / 2, height / 2]) as Point;
@@ -146,6 +151,10 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
           ))}
         </defs>
         <g opacity={fadeIn} transform={camera}>
+          {/* Countries the route crosses without stopping: dimmed, like neighbours on the map scenes. */}
+          {transitShapes.map((d, i) => (
+            <path key={`x-${i}`} d={d} fill="rgba(232,121,31,0.16)" stroke="rgba(255,210,74,0.35)" strokeWidth={1.5} />
+          ))}
           {shapes.map(({ c, d }) => (
             <path key={`g-${c.iso}`} d={d} fill={GLOW_COLOR} filter="url(#ovGlow)" opacity={0.6} />
           ))}

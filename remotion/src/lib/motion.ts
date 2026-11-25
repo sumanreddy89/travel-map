@@ -8,7 +8,7 @@ export const MOTION = {
     arrivalOutroPad: 16,
   },
   head: { glowRadius: 26, glowOpacity: 0.7 }, // the soft glow at the tip of the line as it draws
-  vehicle: { fadeInFrames: 4, fadeOutFrames: 6 },
+  vehicle: { fadeInFrames: 4, fadeOutFrames: 6, size: { landscape: 1.35, portrait: 1.9 } }, // portrait is watched small, on a phone
   pin: {
     leadFrames: 6, // the destination pin pops this many frames before the line arrives
     arrivalPopAt: 16, // first stop of a country, with no line to wait for

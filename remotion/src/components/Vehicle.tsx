@@ -35,7 +35,7 @@ const ICONS: Record<TravelMode, React.ReactNode> = {
   ),
 };
 
-export const Vehicle: React.FC<{ mode?: TravelMode; x: number; y: number; heading: number; scale: number; opacity: number; pulse: number }> = ({
+export const Vehicle: React.FC<{ mode?: TravelMode; x: number; y: number; heading: number; scale: number; opacity: number; pulse: number; size?: number }> = ({
   mode,
   x,
   y,
@@ -43,6 +43,7 @@ export const Vehicle: React.FC<{ mode?: TravelMode; x: number; y: number; headin
   scale,
   opacity,
   pulse,
+  size = 1.35,
 }) => {
   if (opacity <= 0.01) return null;
   if (!mode) {
@@ -54,7 +55,7 @@ export const Vehicle: React.FC<{ mode?: TravelMode; x: number; y: number; headin
     );
   }
   return (
-    <g transform={`translate(${x}, ${y}) scale(${scale * 1.35})`} opacity={opacity}>
+    <g transform={`translate(${x}, ${y}) scale(${scale * size})`} opacity={opacity}>
       <circle r={16} fill={GLOW_COLOR} filter="url(#glow)" opacity={0.75} />
       <g transform={`rotate(${heading})`}>{ICONS[mode]}</g>
     </g>

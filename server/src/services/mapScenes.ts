@@ -1,4 +1,4 @@
-import { countryIso, ensureCountryAssets, findCountryForPoint, regionForPoint, type CountryAssets } from "./geo.js";
+import { countriesAlongLine, countryIso, ensureCountryAssets, findCountryForPoint, regionForPoint, type CountryAssets } from "./geo.js";
 import * as turf from "@turf/turf";
 import { fetchRoute } from "./routing.js";
 import { followsRoads, legMode } from "../lib/travelMode.js";
@@ -132,12 +132,22 @@ export async function buildMapScenes(
       }
     }
 
+    // Countries the leg crosses without stopping: along the road route, or the straight line for flights.
+    const visitedIsos = new Set([...stopCountries.values()].map(countryIso));
+    const transitCountries = currentLeg
+      ? await countriesAlongLine(
+          currentLeg.routeCoords ?? [[currentLeg.from.lng, currentLeg.from.lat], [currentLeg.to.lng, currentLeg.to.lat]],
+          visitedIsos
+        )
+      : [];
+
     scenes.push({
       toStop: toPoint(toStop),
       country,
       currentLeg,
       priorLegs: [...streak],
       travel,
+      ...(transitCountries.length ? { transitCountries } : {}),
     });
 
     if (currentLeg) streak.push(currentLeg);

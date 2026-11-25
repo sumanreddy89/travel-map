@@ -4,9 +4,9 @@ Turn a route of places (with your own photos/videos) into a Globe Trekker-style
 travel video: an animated, glowing map traces the route between stops, cutting
 to your media at each destination with AI-written narration.
 
-[![Porto to Palma: the whole route on the amber terrain map](docs/demo/poster.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v4/demo-landscape.mp4)
+[![Porto to Palma: the whole route on the amber terrain map](docs/demo/poster.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4)
 
-*The demo film, "Porto to Palma" (55s, 1920×1080, silent): by car, train and plane. Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v4/demo-landscape.mp4) (50MB; [portrait version](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v4/demo-portrait.mp4), 36MB). Or render it yourself in a few minutes with the commands below.*
+*The demo film, "Porto to Palma" (50s, 1920×1080, silent): by car, train and plane. Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4) (48MB; [portrait version](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-portrait.mp4), 39MB). Or render it yourself in a few minutes with the commands below.*
 
 **Don't want to set anything up?** A hosted version (paste a trip, get the MP4) is being considered. [Join the waitlist](https://sumanreddy89.github.io/travel-map/hosted/) if you'd use it.
 

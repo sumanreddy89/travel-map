@@ -278,3 +278,45 @@ async function buildTerrainPng(
     .png()
     .toFile(outFile);
 }
+
+// Countries a leg passes over without stopping (Belgium between Paris and Amsterdam), so the map
+// can draw them dimmed instead of leaving a dark gap under the line. The line is sampled about
+// every 0.15 degrees; visited countries are left out (they're drawn already).
+const transitCache = new Map<string, { iso: string; name: string; countryGeometry: GeoJSON.Geometry }>();
+
+export async function countriesAlongLine(
+  coords: [number, number][],
+  exclude: Set<string>
+): Promise<{ iso: string; name: string; countryGeometry: GeoJSON.Geometry }[]> {
+  const fc = await loadCountries();
+  const found = new Map<string, GeoJSON.Feature>();
+  const STEP = 0.15;
+  for (let i = 1; i < coords.length; i++) {
+    const [x0, y0] = coords[i - 1];
+    const [x1, y1] = coords[i];
+    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / STEP));
+    for (let k = 0; k <= n; k++) {
+      const lng = x0 + ((x1 - x0) * k) / n;
+      const lat = y0 + ((y1 - y0) * k) / n;
+      const pt = turf.point([lng, lat]);
+      for (const f of fc.features) {
+        const iso = countryIso(f);
+        if (exclude.has(iso) || found.has(iso) || !f.geometry) continue;
+        const [bx0, by0, bx1, by1] = turf.bbox(f);
+        if (lng < bx0 || lng > bx1 || lat < by0 || lat > by1) continue;
+        try {
+          if (turf.booleanPointInPolygon(pt, f as any)) found.set(iso, f);
+        } catch {
+          // malformed geometry, skip
+        }
+      }
+    }
+  }
+  return [...found.entries()].map(([iso, f]) => {
+    if (!transitCache.has(iso)) {
+      const simplified = turf.simplify(f as any, { tolerance: 0.01, highQuality: true }) as GeoJSON.Feature;
+      transitCache.set(iso, { iso, name: String((f.properties as any)?.name ?? iso), countryGeometry: simplified.geometry });
+    }
+    return transitCache.get(iso)!;
+  });
+}
