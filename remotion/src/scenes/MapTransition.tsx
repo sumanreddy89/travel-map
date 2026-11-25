@@ -48,6 +48,8 @@ const FILL_COLOR_TOP = "#E8791F";
 const FILL_COLOR_BOTTOM = "#B23A0E";
 const LINE_COLOR = "#FBEFDD";
 const BORDER_COLOR = "rgba(70,20,0,0.45)";
+const NEIGHBOUR_FILL = "rgba(232,121,31,0.16)";
+const NEIGHBOUR_STROKE = "rgba(255,210,74,0.35)";
 const PANEL_WIDTH_RATIO = 0.38;
 // Natural Earth's admin-1 layer is county/district-level for some countries
 // (Cyprus: 5 districts) but municipality-level for others (Slovenia: 193) -
@@ -61,9 +63,11 @@ export type MapTransitionProps = {
   media: MediaItem[];
   /** Local duration of this scene in frames (its own Sequence length, not the whole video). */
   durationInFrames: number;
+  /** Every country the trip visits; the ones other than this scene's are drawn as dimmed silhouettes. */
+  tripCountries?: { iso: string; geometry: GeoJSON.Geometry }[];
 };
 
-export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, durationInFrames }) => {
+export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, durationInFrames, tripCountries = [] }) => {
   const asset = useAssetUrl();
   useTerrainReady(staticFile(scene.country.terrainRelPath));
   const frame = useCurrentFrame();
@@ -118,6 +122,10 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   );
 
   const countryPathD = useMemo(() => geometryToPath(projection, country.countryGeometry), [projection, country]);
+  const neighbourPathsD = useMemo(
+    () => tripCountries.filter((c) => c.iso !== country.iso).map((c) => geometryToPath(projection, c.geometry)),
+    [projection, country, tripCountries]
+  );
   const admin1PathsD = useMemo(
     () =>
       country.admin1.length <= MAX_ADMIN1_BORDERS
@@ -235,6 +243,11 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         </defs>
 
         <g opacity={fadeIn}>
+          {/* The trip's other countries, dimmed under the current one, so a stop near a border sits
+              next to a visible neighbour rather than in empty space. */}
+          {neighbourPathsD.map((d, i) => (
+            <path key={i} d={d} fill={NEIGHBOUR_FILL} stroke={NEIGHBOUR_STROKE} strokeWidth={1.5} />
+          ))}
           <path d={countryPathD} fill={GLOW_COLOR} filter="url(#glow)" opacity={0.85} />
 
           <g clipPath="url(#countryClip)">

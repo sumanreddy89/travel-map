@@ -77,6 +77,9 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
   // Each stop's country, from the map scene that arrives there (closures recap, so they're skipped).
   const countryOf = new Map(mapScenes.filter((s) => !s.closure).map((s) => [s.toStop.id, s.country.name]));
   const timeline = buildTimeline(trip, mapScenes);
+  // Every country the trip visits, once each, so a map scene can show its neighbours on the route
+  // (Porto's Portugal next to Spain) instead of leaving them as empty dark space.
+  const tripCountries = [...new Map(mapScenes.map((s) => [s.country.iso, { iso: s.country.iso, geometry: s.country.countryGeometry }])).values()];
 
   let cursor = 0;
   const items = timeline.map((item, i) => {
@@ -95,7 +98,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
       const name = item.scene.closure ? `Closure: ${item.scene.country.name}` : `Map: ${item.scene.toStop.name}`;
       return (
         <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name={name}>
-          <MapTransition scene={item.scene} media={item.media} durationInFrames={item.durationInFrames} />
+          <MapTransition scene={item.scene} media={item.media} durationInFrames={item.durationInFrames} tripCountries={tripCountries} />
         </Sequence>
       );
     }
