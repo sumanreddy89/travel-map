@@ -417,7 +417,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         >
           {media.map((item, i) => (
             <Sequence key={item.id} from={i * perPanelItem} durationInFrames={perPanelItem} name={item.path}>
-              <MediaKenBurns item={item} durationInFrames={perPanelItem} zoomTo={1.08} panXTo={-10} />
+              <MediaKenBurns item={item} durationInFrames={perPanelItem} zoomTo={1.08} panXTo={-10} boxAspect={panelWidth / height} />
             </Sequence>
           ))}
           <AbsoluteFill

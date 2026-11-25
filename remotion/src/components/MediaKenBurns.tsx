@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, OffthreadVideo, interpolate, useCurrentFrame } from "remotion";
+import { useEffect, useState } from "react";
+import { AbsoluteFill, Img, OffthreadVideo, continueRender, delayRender, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { useAssetUrl } from "../lib/assets";
 import type { MediaItem } from "../types";
 
@@ -10,7 +11,36 @@ export type MediaKenBurnsProps = {
   panXTo?: number;
   /** False for a slide the next one crossfades over, so the stop never dips to black between photos. */
   fadeOut?: boolean;
+  /** Width/height of the box the slide fills. Defaults to the whole frame; the map's side panel passes its own. */
+  boxAspect?: number;
 };
+
+// A photo fills its box (cropping the edges) when that crops at most this share of it; otherwise
+// it's shown whole over a blurred copy. 4:3 and 3:2 photos fill a 16:9 frame; a portrait photo in
+// a landscape frame, or a landscape photo in a portrait frame, keeps the blurred sides.
+export const MAX_FILL_CROP = 0.35;
+
+export function fillsBox(photoAspect: number, boxAspect: number): boolean {
+  if (!(photoAspect > 0) || !(boxAspect > 0)) return false;
+  return 1 - Math.min(photoAspect / boxAspect, boxAspect / photoAspect) <= MAX_FILL_CROP;
+}
+
+// The photo's aspect ratio, known before the frame is captured (the render waits for it).
+function usePhotoAspect(src: string | null): number | null {
+  const [aspect, setAspect] = useState<number | null>(null);
+  const [handle] = useState(() => (src ? delayRender(`Measuring ${src}`) : null));
+  useEffect(() => {
+    if (!src) return;
+    const img = new Image();
+    img.onload = () => setAspect(img.naturalWidth / img.naturalHeight || 0);
+    img.onerror = () => setAspect(0);
+    img.src = src;
+  }, [src]);
+  useEffect(() => {
+    if (handle !== null && aspect !== null) continueRender(handle);
+  }, [aspect, handle]);
+  return aspect;
+}
 
 // Ken Burns pan/zoom for a single photo/video slide. Takes the slide's own
 // duration explicitly rather than reading it from useVideoConfig(), which
@@ -23,9 +53,14 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
   zoomTo = 1.12,
   panXTo = -18,
   fadeOut = true,
+  boxAspect,
 }) => {
   const asset = useAssetUrl();
   const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const photoSrc = item && item.type !== "video" ? asset(item.path) : null;
+  const photoAspect = usePhotoAspect(photoSrc);
+  const fill = photoAspect !== null && fillsBox(photoAspect, boxAspect ?? width / height);
 
   const kenBurns = interpolate(frame, [0, durationInFrames], [1, zoomTo], {
     extrapolateLeft: "clamp",
@@ -70,6 +105,14 @@ export const MediaKenBurns: React.FC<MediaKenBurnsProps> = ({
     return (
       <AbsoluteFill style={{ opacity: fade, backgroundColor: "#000" }}>
         <OffthreadVideo src={src} muted style={{ ...kenBurnsStyle, objectFit: "cover" }} />
+      </AbsoluteFill>
+    );
+  }
+
+  if (fill) {
+    return (
+      <AbsoluteFill style={{ opacity: fade, overflow: "hidden", backgroundColor: "#000" }}>
+        <Img src={src} style={{ ...kenBurnsStyle, objectFit: "cover" }} />
       </AbsoluteFill>
     );
   }
