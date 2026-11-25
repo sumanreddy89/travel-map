@@ -51,6 +51,9 @@ const BORDER_COLOR = "rgba(70,20,0,0.45)";
 const NEIGHBOUR_FILL = "rgba(232,121,31,0.16)";
 const NEIGHBOUR_STROKE = "rgba(255,210,74,0.35)";
 const PANEL_WIDTH_RATIO = 0.38;
+// The map camera: how far a scene pushes in, and how much of the way its focus drifts to the centre.
+const CAMERA_PUSH = 1.22;
+const CAMERA_DRIFT = 0.35;
 // Natural Earth's admin-1 layer is county/district-level for some countries
 // (Cyprus: 5 districts) but municipality-level for others (Slovenia: 193) -
 // past a certain count the internal borders stop reading as "one country's
@@ -218,6 +221,31 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
 
   const closureBadgeIn = spring({ frame: frame - 22, fps, config: { damping: 13, stiffness: 150 } });
 
+  // A slow camera, so a map scene isn't a still frame with a growing line. Travel and arrival
+  // scenes push in on where the action is (the leg's midpoint, or the arrival pin) and drift it
+  // towards the centre; the closure scene pulls back to the whole route. Only zooms of 1 or more,
+  // so the map never shrinks to show its own edge.
+  const focus = useMemo<Point>(() => {
+    const pts = isClosure
+      ? allPoints.map((p) => projectedById.get(p.id))
+      : currentLeg
+        ? [projectedById.get(currentLeg.from.id), projectedById.get(currentLeg.to.id)]
+        : [projectedById.get(toStop.id)];
+    const known = pts.filter((p): p is Point => Boolean(p));
+    if (!known.length) return [width / 2, height / 2];
+    return [known.reduce((s, p) => s + p[0], 0) / known.length, known.reduce((s, p) => s + p[1], 0) / known.length];
+  }, [isClosure, allPoints, currentLeg, toStop, projectedById, width, height]);
+  const cameraT = interpolate(frame, [0, durationInFrames], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.sin),
+  });
+  const cameraZoom = isClosure ? interpolate(cameraT, [0, 1], [CAMERA_PUSH, 1]) : interpolate(cameraT, [0, 1], [1, CAMERA_PUSH]);
+  const drift = isClosure ? 1 - cameraT : cameraT;
+  const cameraX = focus[0] + (width / 2 - focus[0]) * CAMERA_DRIFT * drift;
+  const cameraY = focus[1] + (height / 2 - focus[1]) * CAMERA_DRIFT * drift;
+  const camera = `translate(${cameraX} ${cameraY}) scale(${cameraZoom}) translate(${-focus[0]} ${-focus[1]})`;
+
   const perPanelItem = hasMedia ? Math.max(1, Math.floor(durationInFrames / media.length)) : 0;
 
   return (
@@ -241,6 +269,8 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#000" floodOpacity="0.5" />
           </filter>
         </defs>
+
+        <g transform={camera}>
 
         <g opacity={fadeIn}>
           {/* The trip's other countries, dimmed under the current one, so a stop near a border sits
@@ -329,6 +359,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             scale={destinationPop * scale}
           />
         )}
+        </g>
       </svg>
 
       <div
