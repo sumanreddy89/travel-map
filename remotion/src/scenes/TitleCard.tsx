@@ -3,14 +3,18 @@ import { useAssetUrl } from "../lib/assets";
 import { fontFamily } from "../lib/fonts";
 import { getLayout } from "../lib/layout";
 import type { Trip } from "../types";
+import { TripOverview, type TripOverviewData } from "./TripOverview";
 
 const GLOW_COLOR = "#FFD24A";
 
 export type TitleCardProps = {
   trip: Pick<Trip, "title" | "titleCardAudioPath">;
+  /** The whole trip on one map, drawn behind the title. Without it, the title sits on a plain background. */
+  overview?: TripOverviewData | null;
+  durationInFrames?: number;
 };
 
-export const TitleCard: React.FC<TitleCardProps> = ({ trip }) => {
+export const TitleCard: React.FC<TitleCardProps> = ({ trip, overview, durationInFrames = 90 }) => {
   const asset = useAssetUrl();
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
@@ -28,9 +32,20 @@ export const TitleCard: React.FC<TitleCardProps> = ({ trip }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0704", fontFamily }}>
-      <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 45%, #2a1509 0%, #0b0704 72%)" }} />
+      {overview ? (
+        <TripOverview {...overview} durationInFrames={durationInFrames} />
+      ) : (
+        <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 45%, #2a1509 0%, #0b0704 72%)" }} />
+      )}
 
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+      {/* Over the map, the title moves to the lower third so the route stays visible. */}
+      <AbsoluteFill
+        style={{
+          alignItems: "center",
+          justifyContent: overview ? "flex-end" : "center",
+          paddingBottom: overview ? height * (getLayout(width, height).portrait ? 0.2 : 0.12) : 0,
+        }}
+      >
         <div
           style={{
             opacity: titleOpacity,

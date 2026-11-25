@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useAssetUrl } from "../lib/assets";
 import {
   AbsoluteFill,
@@ -6,8 +6,6 @@ import {
   Easing,
   Sequence,
   interpolate,
-  continueRender,
-  delayRender,
   spring,
   staticFile,
   useCurrentFrame,
@@ -15,6 +13,7 @@ import {
 } from "remotion";
 import { fontFamily } from "../lib/fonts";
 import { getLayout } from "../lib/layout";
+import { useTerrainReady } from "../lib/terrain";
 import { buildProjection, geometryToPath, paddedPointBbox, type Bbox } from "../lib/projection";
 import {
   cumulativeLengths,
@@ -27,21 +26,6 @@ import {
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import { OsmCredit } from "../components/Credit";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
-
-// The terrain is drawn with an SVG <image>, which Remotion doesn't wait for (it only waits for its
-// own <Img>). Without this, the first frames of a map scene could render before the texture had
-// decoded, showing a flat beige country instead of the relief.
-function useTerrainReady(src: string) {
-  const [handle] = useState(() => delayRender(`Loading terrain ${src}`));
-  useEffect(() => {
-    const img = new Image();
-    img.src = src;
-    img
-      .decode()
-      .catch((err) => console.error(`Couldn't load the terrain texture ${src}`, err))
-      .finally(() => continueRender(handle));
-  }, [src, handle]);
-}
 
 const GLOW_COLOR = "#FFD24A";
 const FILL_COLOR_TOP = "#E8791F";
