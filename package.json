@@ -11,6 +11,7 @@
     "demo:prepare": "node remotion/scripts/demo.mjs prepare",
     "demo:render": "node remotion/scripts/demo.mjs render",
     "demo:stills": "node remotion/scripts/demo.mjs stills",
+    "year": "tsx server/src/scripts/yearFilm.ts",
     "dev:web": "npm run dev --workspace web",
     "dev:server": "npm run dev --workspace server",
     "studio": "npm run dev --workspace remotion",

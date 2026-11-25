@@ -25,7 +25,10 @@ Licences were read from each file's Commons metadata on 23 November 2026 (Palma:
 
 - **Oswald** (variable, weights 200-700), © 2016 The Oswald Project Authors, [SIL Open Font License 1.1](../../remotion/public/fonts/Oswald-OFL.txt). Copied unmodified from [google/fonts](https://github.com/google/fonts/tree/main/ofl/oswald).
 
+## Music (`remotion/public/demo/music/`)
+
+- **"The Winding Path — Travel"** (60 s, looped quietly under both demos, fading in and out). © Suman Reddy, made with ElevenMusic (ElevenLabs). Included with the owner's permission for the demo only: not covered by the MIT licence, and not licensed for reuse outside this repository. See [`NOTICE.md`](../../NOTICE.md).
+
 ## Not included
 
-- **Music:** none. The demo is silent; no track in this project is licensed for redistribution (see `NOTICE.md`).
 - **Voiceover:** none. The narration text is in the trip, but the demo makes no text-to-speech requests.

@@ -23,16 +23,23 @@ const DEFAULT_MODE: TravelMode = "plane";
 const fold = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-type Row = [string, string, string, string, number, number, number];
+type Row = [string, string, string, string, number, number, number, string[]?];
 // server/places/cities.json: the same relative path from src/lib (tsx) and dist/lib (built).
 const citiesFile = JSON.parse(fs.readFileSync(new URL("../../places/cities.json", import.meta.url), "utf-8")) as { cities: Row[]; countries: Record<string, string> };
 const COUNTRY_NAMES = citiesFile.countries;
 export const CITIES: City[] = (citiesFile.cities as Row[]).map(([name, , iso3, iso2, lat, lng, pop]) => ({ name, iso3, iso2, lat, lng, pop }));
-const byName = new Map<string, City[]>();
+// Names to match: the local name, its plain-letters form, and Natural Earth's alternatives (the
+// English "Copenhagen" for København). A match on an alternative keeps that spelling as the label.
+const byName = new Map<string, { city: City; label: string }[]>();
 for (const [i, row] of (citiesFile.cities as Row[]).entries()) {
-  for (const key of new Set([fold(row[0]), fold(row[1])])) {
+  const names: [string, string][] = [[row[0], row[0]], [row[1], row[0]], ...(row[7] ?? []).map((a): [string, string] => [a, a])];
+  const seen = new Set<string>();
+  for (const [name, label] of names) {
+    const key = fold(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
     if (!byName.has(key)) byName.set(key, []);
-    byName.get(key)!.push(CITIES[i]);
+    byName.get(key)!.push({ city: CITIES[i], label });
   }
 }
 
@@ -50,7 +57,8 @@ function matchesCountry(c: City, q: string): boolean {
 
 export function findCity(query: string): { ok: true; city: City } | { ok: false; error: string } {
   const [namePart, countryPart = ""] = query.split(/,(?=[^,]*$)/).map((s) => s.trim());
-  const candidates = (byName.get(fold(namePart)) ?? []).filter((c) => matchesCountry(c, countryPart));
+  const matches = (byName.get(fold(namePart)) ?? []).filter((m) => matchesCountry(m.city, countryPart));
+  const candidates = matches.map((m) => m.city);
   if (!namePart) return { ok: false, error: "the place is empty" };
   if (candidates.length === 0) {
     return {
@@ -64,7 +72,8 @@ export function findCity(query: string): { ok: true; city: City } | { ok: false;
   if (countries.length > 1) {
     return { ok: false, error: `"${namePart}" matches places in ${countries.join(", ")}. Add the country, for example "${namePart}, ${countries[0]}".` };
   }
-  return { ok: true, city: candidates.reduce((a, b) => (b.pop > a.pop ? b : a)) };
+  const best = matches.reduce((a, b) => (b.city.pop > a.city.pop ? b : a));
+  return { ok: true, city: { ...best.city, name: best.label } };
 }
 
 const isRealDate = (s: string) => {

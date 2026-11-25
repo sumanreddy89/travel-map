@@ -53,3 +53,8 @@ test("findCity reports ambiguity instead of guessing across countries", () => {
   if (!r.ok) assert.match(r.error, /matches places in .*Add the country/);
   else assert.ok(r.city.name.startsWith("C"), "only one Córdoba in the list is fine too");
 });
+
+test("English names find cities listed under their local name, and keep the English spelling", () => {
+  const v = ok("Copenhagen | 2026-05-04\nMunich | 2026-06-01 | train\nVienna | 2026-07-01 | train\nKøbenhavn | 2026-08-01");
+  assert.deepEqual(v.rows.map((r) => [r.city.name, r.city.iso3]), [["Copenhagen", "DNK"], ["Munich", "DEU"], ["Vienna", "AUT"], ["København", "DNK"]]);
+});

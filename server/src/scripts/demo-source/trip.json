@@ -62,5 +62,10 @@
       "travelNarrationKey": "[\"Madrid\",\"Palma\",true]",
       "closureNarration": "And that was Spain: from the border to the sea."
     }
-  ]
+  ],
+  "music": {
+    "path": "demo/music/the-winding-path-travel.mp3",
+    "volume": 0.35,
+    "durationSec": 60
+  }
 }
