@@ -32,6 +32,8 @@ export type Trip = {
   titleCardNarration?: string;
   titleCardAudioPath?: string;
   titleCardAudioDurationSec?: number;
+  // A "Year in travel" film: stats opener, map legs only, share card at the end.
+  yearInTravel?: { year: number };
 };
 
 export type RouteStopPoint = { id: string; name: string; lat: number; lng: number };

@@ -53,3 +53,23 @@ test("the credit setting is saved, and a bad value changes nothing", async () =>
   assert.equal((await send("PUT", `${base}/${trip.id}`, { showWatermark: "yes" })).status, 400);
   assert.equal(await (await send("GET", `${base}/${trip.id}`)).text(), saved);
 });
+
+test("Year in travel: a pasted list becomes a trip; a malformed line is a 400 that names it", async () => {
+  const bad = await send("POST", `${base}/year`, { text: "Lisbon | 2026-02-14\nMadrid | someday" });
+  assert.equal(bad.status, 400);
+  assert.match((await bad.json()).error, /^Line 2: "someday" isn't a date/);
+  assert.equal((await send("POST", `${base}/year`, {})).status, 400);
+
+  const res = await send("POST", `${base}/year`, { text: "Lisbon | 2026-02-14\nMadrid | 2026-03-20\nBarcelona | 2026-04-02 | train" });
+  assert.equal(res.status, 201);
+  const trip = await res.json();
+  assert.equal(trip.title, "2026 in travel");
+  assert.deepEqual(trip.yearInTravel, { year: 2026 });
+  assert.deepEqual(trip.stops.map((s: { name: string; travelMode: string; date: string }) => [s.name, s.travelMode, s.date]), [
+    ["Lisbon", "plane", "14 Feb"],
+    ["Madrid", "plane", "20 Mar"],
+    ["Barcelona", "train", "2 Apr"],
+  ]);
+  const again = await (await send("GET", `${base}/${trip.id}`)).json();
+  assert.equal(again.stops.length, 3);
+});

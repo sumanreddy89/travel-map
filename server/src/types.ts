@@ -50,6 +50,9 @@ export type Trip = {
   titleCardNarration?: string;
   titleCardAudioPath?: string; // relative to DATA_DIR
   titleCardAudioDurationSec?: number;
+  // Set for a "Year in travel" trip (see lib/yearInput.ts): the film opens with the year's stats
+  // and ends on a share card, with no narration or voiceover.
+  yearInTravel?: { year: number };
 };
 
 export type RenderJobState = "idle" | "narrating" | "voicing" | "mapping" | "rendering" | "done" | "error";
