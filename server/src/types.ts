@@ -86,6 +86,9 @@ export type MapScene = {
   // fully drawn (not animated) so the accumulated route stays visible -
   // resets whenever the trip leaves and re-enters a country.
   priorLegs: RouteLeg[];
+  // Countries this scene's leg crosses without stopping, drawn dimmed so the line never runs
+  // over an empty gap. Shapes only; no terrain.
+  transitCountries?: { iso: string; name: string; countryGeometry: GeoJSON.Geometry }[];
   // Present only for the recap scene inserted right after a country visit
   // wraps up (leaving for another country, or the trip ending) - shows the
   // whole completed route for that country with no further animation.
