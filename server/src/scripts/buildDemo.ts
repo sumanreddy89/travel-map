@@ -9,6 +9,8 @@
 //   remotion/src/demo/demoProps.json   fixed render props: trip, map scenes, precomputed routes
 //   remotion/public/demo/terrain/      the terrain textures those scenes use
 // Photos in remotion/public/demo/media/ are added by hand; see docs/demo/ASSETS.md.
+// The trip demo's voiceover is added afterwards by voiceDemo.ts (needs an ElevenLabs key);
+// rebuilding drops it, so run that script again after this one.
 import fs from "node:fs/promises";
 import path from "node:path";
 import { REMOTION_DIR, REMOTION_PUBLIC_DIR } from "../config.js";
@@ -32,9 +34,9 @@ async function loadYearTrip(): Promise<Trip> {
   if (!parsed.ok) throw new Error(`demo-source/year.txt: ${parsed.error}`);
   let n = 0;
   const fields = yearTripFields(parsed.value, () => `demo-y${String(++n).padStart(2, "0")}`);
-  // Same music as the trip demo (see NOTICE.md for its terms).
+  // Same music as the trip demo (see NOTICE.md for its terms), a little louder: no voiceover to sit under.
   const music = JSON.parse(await fs.readFile(SOURCE, "utf-8")).music;
-  return { id: "demo-year0", createdAt: FIXED_TIME, updatedAt: FIXED_TIME, orientation: "landscape", ...fields, ...(music ? { music } : {}) };
+  return { id: "demo-year0", createdAt: FIXED_TIME, updatedAt: FIXED_TIME, orientation: "landscape", ...fields, ...(music ? { music: { ...music, volume: 0.35 } } : {}) };
 }
 
 async function main() {

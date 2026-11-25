@@ -38,7 +38,7 @@
       "lng": -3.7074,
       "date": "Day 5",
       "notes": "A long evening in the Plaza Mayor.",
-      "narration": "And Madrid to finish: a long, slow evening in the Plaza Mayor.",
+      "narration": "Then Madrid, for a long, slow evening in the Plaza Mayor.",
       "media": [
         "madrid-plaza-mayor.jpg"
       ],
@@ -65,7 +65,7 @@
   ],
   "music": {
     "path": "demo/music/the-winding-path-travel.mp3",
-    "volume": 0.35,
+    "volume": 0.2,
     "durationSec": 60
   }
 }

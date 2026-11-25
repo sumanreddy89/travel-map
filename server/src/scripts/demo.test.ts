@@ -26,10 +26,21 @@ test("every file the demo renders is checked in", () => {
   assert.ok(exists("fonts/Oswald-OFL.txt"), "the font's licence ships with it");
 });
 
-test("the demo has no voiceover files and no web addresses to fetch", () => {
+test("the demo's voiceover is checked in, every line is voiced, and nothing points at the web", () => {
   const raw = JSON.stringify(props);
   assert.doesNotMatch(raw, /https?:\/\//);
-  assert.doesNotMatch(raw, /"(audioPath|titleCardAudioPath|travelAudioPath|closureAudioPath)"/);
+  // Voiced once by voiceDemo.ts and checked in, so rendering needs no key.
+  const lines: [string | undefined, string | undefined][] = [
+    [props.trip.titleCardNarration, props.trip.titleCardAudioPath],
+    ...props.trip.stops.map((s: { narration?: string; audioPath?: string }) => [s.narration, s.audioPath] as [string | undefined, string | undefined]),
+    ...props.mapScenes.flatMap((sc: { travel?: { narration?: string; audioPath?: string }; closure?: { narration?: string; audioPath?: string } }) =>
+      [sc.travel, sc.closure].filter(Boolean).map((x) => [x!.narration, x!.audioPath] as [string | undefined, string | undefined])),
+  ];
+  for (const [text, audio] of lines) {
+    if (!text) continue;
+    assert.match(String(audio), /^voice\/[a-z0-9-]+\.mp3$/, `"${text}" has a voice file`);
+    assert.ok(exists(`demo/${audio}`), `${audio} is checked in`);
+  }
   // The one track in the repo, included with its owner's permission for the demo only (NOTICE.md).
   assert.equal(props.trip.music?.path, "demo/music/the-winding-path-travel.mp3");
   assert.ok(exists(props.trip.music.path), "the demo track is checked in");
