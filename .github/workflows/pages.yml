@@ -1,7 +1,8 @@
 name: Pages
 
-# Publishes site/ (the hosted-version landing page) to GitHub Pages. The self-hosted app is not
-# part of this and is unchanged.
+# Builds site/ (the hosted-version landing page) and pushes it to the gh-pages branch, which
+# GitHub Pages serves. This avoids the Actions artifact route, which kept failing to find its own
+# upload on 25 Nov 2026. The self-hosted app is not part of this and is unchanged.
 on:
   push:
     branches: [main]
@@ -9,26 +10,25 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}hosted/
     steps:
       - uses: actions/checkout@v4
-      - run: sh site/build.sh
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: _site
-      - id: deploy
-        uses: actions/deploy-pages@v5
+      - run: sh site/build.sh && touch _site/.nojekyll
+      - name: Push _site to gh-pages
+        working-directory: _site
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Publish site/ from ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
