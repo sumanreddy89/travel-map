@@ -8,6 +8,8 @@ to your media at each destination with AI-written narration.
 
 *The demo film, "Porto to Madrid" (39s, 1920×1080, silent). Click the poster or [download the MP4](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v2/demo-landscape.mp4) (32MB; [portrait version](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v2/demo-portrait.mp4), 26MB). Or render it yourself in a few minutes with the commands below.*
 
+**Don't want to set anything up?** A hosted version (paste a trip, get the MP4) is being considered. [Join the waitlist](https://sumanreddy89.github.io/travel-map/hosted/) if you'd use it.
+
 | The route draws itself | Then your photos at each stop | Portrait, for phones |
 |---|---|---|
 | ![The route drawing into Salamanca](docs/demo/map-frame.jpg) | ![Porto, with its caption](docs/demo/photo-frame.jpg) | <img src="docs/demo/portrait-photo-frame.jpg" alt="The Porto stop in portrait" width="140"> |

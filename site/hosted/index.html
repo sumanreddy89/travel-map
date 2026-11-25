@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TravelMap, hosted: paste a trip, get the MP4</title>
+<meta name="description" content="Turn a list of places and your photos into an animated map film, without setting anything up. Not live yet: join the waitlist.">
+<meta property="og:title" content="Skip the setup. Paste a trip, get the MP4.">
+<meta property="og:description" content="An animated map traces your route and cuts to your photos at each stop.">
+<meta property="og:image" content="img/poster.jpg">
+<meta name="theme-color" content="#0b0704">
+<style>
+  @font-face { font-family: "Oswald"; src: url("fonts/Oswald-Variable.ttf") format("truetype"); font-weight: 200 700; font-display: swap; }
+  :root {
+    --bg: #0b0704; --panel: #1a0f08; --line: rgba(255, 210, 74, 0.22);
+    --ink: #fbefdd; --muted: #c9b8a0; --amber: #e8791f; --glow: #ffd24a;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: radial-gradient(circle at 50% 0%, #241207 0%, var(--bg) 60%) var(--bg);
+    color: var(--ink); font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 56px; }
+  .brand { font-family: Oswald, sans-serif; letter-spacing: 3px; text-transform: uppercase; color: var(--glow); font-size: 15px; margin: 0 0 28px; }
+  .brand a { color: inherit; text-decoration: none; }
+  h1 { font-family: Oswald, sans-serif; font-weight: 600; font-size: clamp(34px, 7vw, 60px); line-height: 1.08; margin: 0 0 16px; letter-spacing: 0.5px; }
+  .lede { color: var(--muted); max-width: 640px; margin: 0 0 28px; }
+  .film { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 0 60px rgba(232, 121, 31, 0.18); background: #000; }
+  .film video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+  .caption { color: var(--muted); font-size: 13px; margin: 8px 0 32px; }
+  .offer { display: grid; gap: 18px; grid-template-columns: 1fr; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin: 0 0 28px; }
+  @media (min-width: 720px) { .offer { grid-template-columns: 1fr auto; } }
+  .price { font-family: Oswald, sans-serif; font-size: 26px; margin: 0; }
+  .price small { display: block; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; color: var(--muted); letter-spacing: 0; margin-top: 4px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-block; font: 600 16px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 15px 22px; border-radius: 999px; text-decoration: none; text-align: center; flex: 1 1 auto; }
+  .btn.primary { background: var(--amber); color: #1a0800; }
+  .btn.secondary { border: 1px solid var(--glow); color: var(--glow); }
+  .btn:hover { filter: brightness(1.1); }
+  .btn:focus-visible { outline: 3px solid var(--glow); outline-offset: 3px; }
+  .btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+  .note { color: var(--muted); font-size: 14px; margin: 0; }
+  h2 { font-family: Oswald, sans-serif; font-weight: 500; font-size: 24px; margin: 0 0 14px; letter-spacing: 0.5px; }
+  .stills { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 0 0 36px; padding: 0; list-style: none; }
+  @media (min-width: 640px) { .stills { grid-template-columns: repeat(3, 1fr); } }
+  .stills img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; display: block; border-radius: 8px; border: 1px solid var(--line); }
+  .stills p { font-size: 14px; color: var(--muted); margin: 6px 0 0; }
+  ol.how { padding-left: 20px; margin: 0 0 36px; color: var(--muted); }
+  ol.how strong { color: var(--ink); font-weight: 600; }
+  footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13px; color: var(--muted); }
+  footer a { color: var(--glow); }
+  @media (prefers-reduced-motion: reduce) { .btn:hover { filter: none; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand"><a href="https://github.com/sumanreddy89/travel-map">TravelMap</a></p>
+
+  <h1>Skip the setup.<br>Paste a trip, get the MP4.</h1>
+  <p class="lede">List the places you went and add your photos. An animated map traces the route and cuts to your pictures at each stop. TravelMap is free and open source, but running it yourself means Node, a map download and API keys. The hosted version would do that part for you.</p>
+
+  <section class="offer" aria-labelledby="price">
+    <div>
+      <p class="price" id="price">3 free, then about €3 per film.
+        <small>Not live yet, and nothing is charged. I'm checking whether enough people want it before building it.</small>
+      </p>
+    </div>
+    <div class="buttons">
+      <a class="btn primary" id="waitlist" href="#">Join the waitlist</a>
+      <a class="btn secondary" id="pay" href="#">I'd pay for this</a>
+    </div>
+  </section>
+
+  <div class="film">
+    <video src="demo.mp4" poster="img/poster.jpg" controls muted playsinline loop preload="metadata"
+      aria-label="Demo film: Porto to Madrid, an animated map with photos at each stop"></video>
+  </div>
+  <p class="caption">The demo film, "Porto to Madrid" (39 seconds, silent), made entirely by TravelMap.</p>
+
+
+  <h2>What you'd get</h2>
+  <ul class="stills">
+    <li><img src="img/map-frame.jpg" alt="The route drawing from Porto into Salamanca on an amber terrain map" loading="lazy" width="1280" height="720"><p>The route draws itself across the map.</p></li>
+    <li><img src="img/photo-frame.jpg" alt="A photo of Porto with its caption" loading="lazy" width="1280" height="720"><p>Then your photos at each stop.</p></li>
+    <li><img src="img/poster.jpg" alt="The whole route from Porto to Madrid" loading="lazy" width="1280" height="720"><p>The whole trip at the end.</p></li>
+  </ul>
+
+  <h2>How it would work</h2>
+  <ol class="how">
+    <li><strong>Paste your trip</strong>: the places, in order, with dates if you like.</li>
+    <li><strong>Add photos or short clips</strong> for each stop.</li>
+    <li><strong>Get an email</strong> with a link to your MP4, landscape or portrait.</li>
+  </ol>
+
+  <footer>
+    <p>Prefer to run it yourself? It's free and always will be: <a href="https://github.com/sumanreddy89/travel-map">github.com/sumanreddy89/travel-map</a>.</p>
+    <p>Your email is used only to tell you if this launches. This page sets no cookies and runs no analytics.<br>
+      Demo photos: Wikimedia Commons (CC0 / public domain). Map: Natural Earth. Route data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.</p>
+  </footer>
+</main>
+<script src="config.js"></script>
+<script>
+  (function () {
+    var forms = window.TRAVELMAP_FORMS || {};
+    [["waitlist", forms.waitlist], ["pay", forms.pay]].forEach(function (pair) {
+      var a = document.getElementById(pair[0]);
+      if (pair[1]) {
+        a.href = pair[1];
+      } else {
+        a.setAttribute("aria-disabled", "true");
+        a.title = "The form isn't connected yet";
+      }
+    });
+  })();
+</script>
+</body>
+</html>
