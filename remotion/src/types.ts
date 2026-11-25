@@ -36,10 +36,14 @@ export type Trip = {
 
 export type RouteStopPoint = { id: string; name: string; lat: number; lng: number };
 
+export type TravelMode = "car" | "train" | "plane";
+
 export type RouteLeg = {
   from: RouteStopPoint;
   to: RouteStopPoint;
   routeCoords: [number, number][] | null;
+  // The vehicle drawn on this leg; absent means the plain travelling dot.
+  mode?: TravelMode;
 };
 
 export type MapScene = {

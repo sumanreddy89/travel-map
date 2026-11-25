@@ -25,6 +25,8 @@ import {
 } from "../lib/polyline";
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import { OsmCredit } from "../components/Credit";
+import { Vehicle } from "../components/Vehicle";
+import { headingAt } from "../lib/heading";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
 const GLOW_COLOR = "#FFD24A";
@@ -318,13 +320,15 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
         )}
 
         {currentLeg && travelerPos && (
-          <g
-            transform={`translate(${travelerPos[0]}, ${travelerPos[1]}) scale(${travelerPulse * scale})`}
+          <Vehicle
+            mode={currentLeg.mode}
+            x={travelerPos[0]}
+            y={travelerPos[1]}
+            heading={headingAt(currentLegPoints, currentLegLens, currentLegTotalLen * drawProgress)}
+            scale={scale}
             opacity={travelerFade}
-          >
-            <circle r={11} fill={GLOW_COLOR} filter="url(#glow)" opacity={0.9} />
-            <circle r={6} fill="#FFF7E6" stroke="#7A2200" strokeWidth={2} />
-          </g>
+            pulse={travelerPulse}
+          />
         )}
 
         <g opacity={fadeIn}>
