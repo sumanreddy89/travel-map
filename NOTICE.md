@@ -10,5 +10,7 @@ As of this notice those files are no longer tracked in this repository
 going forward (see `.gitignore`); they still exist in earlier commit
 history and remain under the same restriction there.
 
-This repository has no separate license grant for its source code either.
-Absent a `LICENSE` file, all rights to the code are reserved by default.
+The source code is licensed under the MIT License (see `LICENSE`). That
+licence covers the code only: it does not extend to the music above, in this
+or any earlier commit. The demo assets under `docs/demo/` keep their own
+licences, listed in `docs/demo/ASSETS.md`.
