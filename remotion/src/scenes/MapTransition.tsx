@@ -28,6 +28,7 @@ import { OsmCredit } from "../components/Credit";
 import { Vehicle } from "../components/Vehicle";
 import { headingAt } from "../lib/heading";
 import { MOTION, labelMotion, pinScale, routeProgress } from "../lib/motion";
+import { placeLabels, type LabelPlacement } from "../lib/labels";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
 const GLOW_COLOR = "#FFD24A";
@@ -194,6 +195,12 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   // shown immediately/statically rather than popping in again.
   const animatedPointId = isClosure ? undefined : currentLeg ? currentLeg.to.id : toStop.id;
   const staticPoints = isClosure ? allPoints : allPoints.filter((p) => p.id !== animatedPointId);
+  // Names placed so close stops don't stack their labels (in the pin's own units, before `scale`).
+  const labelSpot = useMemo(() => {
+    const pts = allPoints.map((p) => projectedById.get(p.id) ?? ([0, 0] as Point));
+    const spots = placeLabels(pts.map(([x, y]) => [x / scale, y / scale] as Point), allPoints.map((p) => p.name), 30, 24, 13);
+    return new Map(allPoints.map((p, i) => [p.id, spots[i]]));
+  }, [allPoints, projectedById, scale]);
   const animatedPoint = animatedPointId ? allPoints.find((p) => p.id === animatedPointId) : undefined;
   const animatedPt = animatedPointId
     ? (projectedById.get(animatedPointId) ?? ([width / 2, height / 2] as Point))
@@ -338,7 +345,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
           {staticPoints.map((p) => {
             const pt = projectedById.get(p.id);
             return pt ? (
-              <PinAndLabel key={p.id} x={pt[0]} y={pt[1]} label={p.name} scale={scale} />
+              <PinAndLabel key={p.id} x={pt[0]} y={pt[1]} label={p.name} scale={scale} spot={labelSpot.get(p.id)} />
             ) : null;
           })}
         </g>
@@ -351,6 +358,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             pinPop={destinationPop}
             labelOpacity={destinationLabel.opacity}
             labelDy={destinationLabel.dy}
+            spot={labelSpot.get(animatedPoint.id)}
           />
         )}
         </g>
@@ -447,7 +455,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
 
 // The pin and its label animate separately: the pin pops (pinPop, a spring), then the label
 // fades in while sliding up (labelOpacity, labelDy). Static pins pass the defaults.
-const PinAndLabel: React.FC<{ x: number; y: number; label: string; scale: number; pinPop?: number; labelOpacity?: number; labelDy?: number }> = ({
+const PinAndLabel: React.FC<{ x: number; y: number; label: string; scale: number; pinPop?: number; labelOpacity?: number; labelDy?: number; spot?: LabelPlacement }> = ({
   x,
   y,
   label,
@@ -455,6 +463,7 @@ const PinAndLabel: React.FC<{ x: number; y: number; label: string; scale: number
   pinPop = 1,
   labelOpacity = 1,
   labelDy = 0,
+  spot = { dx: 0, dy: -24, anchor: "middle" },
 }) => {
   if (scale <= 0.01 || pinPop <= 0.01) return null;
   return (
@@ -467,10 +476,10 @@ const PinAndLabel: React.FC<{ x: number; y: number; label: string; scale: number
         />
       </g>
       <text
-        x={0}
-        y={-24 + labelDy}
+        x={spot.dx}
+        y={spot.dy + labelDy}
         opacity={labelOpacity}
-        textAnchor="middle"
+        textAnchor={spot.anchor}
         fill="white"
         fontFamily={fontFamily}
         fontWeight={700}
