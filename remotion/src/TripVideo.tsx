@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Loop, Sequence, staticFile } from "remotion";
 import { MapTransition } from "./scenes/MapTransition";
 import { StopContent } from "./scenes/StopContent";
 import { TitleCard } from "./scenes/TitleCard";
+import { tripOverview } from "./scenes/TripOverview";
 import { SHOW_MEDIA_PANEL_IN_MAP_SCENES } from "./config";
 import {
   FPS,
@@ -81,6 +82,8 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
   // (Porto's Portugal next to Spain) instead of leaving them as empty dark space.
   const tripCountries = [...new Map(mapScenes.map((s) => [s.country.iso, { iso: s.country.iso, geometry: s.country.countryGeometry }])).values()];
 
+  const overview = tripOverview(mapScenes);
+
   let cursor = 0;
   const items = timeline.map((item, i) => {
     const from = cursor;
@@ -89,7 +92,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
     if (item.kind === "title") {
       return (
         <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Title">
-          <TitleCard trip={trip} />
+          <TitleCard trip={trip} overview={overview} durationInFrames={item.durationInFrames} />
         </Sequence>
       );
     }
