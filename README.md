@@ -44,7 +44,7 @@ For a single trip, TravelMap cuts from the map to your own photos and videos at 
 
 [![Porto to Palma: the whole route on the amber terrain map](docs/demo/poster.jpg)](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4)
 
-*The trip demo, "Porto to Palma" (50s, with music): by car, train and plane. [Landscape](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4) · [portrait](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-portrait.mp4). Render it yourself, keyless: `npm run demo:render` (add `-- --orientation portrait` for phones).*
+*The trip demo, "Porto to Palma" (58s, narrated, with music): by car, train and plane. [Landscape](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-landscape.mp4) · [portrait](https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-portrait.mp4). Render it yourself, keyless: `npm run demo:render` (add `-- --orientation portrait` for phones).*
 
 | The route draws itself | Then your photos at each stop | Portrait, for phones |
 |---|---|---|

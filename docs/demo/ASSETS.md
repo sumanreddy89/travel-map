@@ -29,6 +29,6 @@ Licences were read from each file's Commons metadata on 23 November 2026 (Palma:
 
 - **"The Winding Path — Travel"** (60 s, looped quietly under both demos, fading in and out). © Suman Reddy, made with ElevenMusic (ElevenLabs). Included with the owner's permission for the demo only: not covered by the MIT licence, and not licensed for reuse outside this repository. See [`NOTICE.md`](../../NOTICE.md).
 
-## Not included
+## Voiceover (`remotion/public/demo/voice/`)
 
-- **Voiceover:** none. The narration text is in the trip, but the demo makes no text-to-speech requests.
+- The trip demo's nine narration lines, voiced once with [ElevenLabs](https://elevenlabs.io) (voice "Rachel", model eleven_multilingual_v2) by `server/src/scripts/voiceDemo.ts` and checked in, so rendering the demo needs no key and makes no requests. The year demo has no voiceover.
