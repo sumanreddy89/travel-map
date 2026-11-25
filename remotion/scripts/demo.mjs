@@ -29,8 +29,8 @@ function orientationArg() {
 // Frames for the README stills, picked from the rendered demo (30fps). Re-pick them if the demo
 // trip or its timing changes: open the MP4 and note the frame numbers.
 const STILLS = [
-  { file: "poster.jpg", frame: 1110, label: "poster: the whole route, Porto to Madrid" },
-  { file: "map-frame.jpg", frame: 560, label: "map: the route drawing into Salamanca" },
+  { file: "poster.jpg", frame: 1560, label: "poster: the finale, the whole route from Porto to Palma" },
+  { file: "map-frame.jpg", frame: 1100, label: "map: the plane leaving Madrid for Palma" },
   { file: "photo-frame.jpg", frame: 330, label: "photo: Porto" },
 ];
 

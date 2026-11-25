@@ -1,3 +1,4 @@
+import { isTravelModeChoice } from "./travelMode.js";
 import type { Orientation, Stop, Trip } from "../types.js";
 
 // Checks for everything a client can send about a trip or a stop. Each returns either the cleaned
@@ -55,7 +56,7 @@ export function validateNewStop(body: unknown): Result<NewStop> {
   return { ok: true, value: { name: name.value, lat: lat.value, lng: lng.value, date: date.value, notes: notes.value } };
 }
 
-type StopPatch = Partial<Pick<Stop, "name" | "lat" | "lng" | "date" | "notes" | "narration">>;
+type StopPatch = Partial<Pick<Stop, "name" | "lat" | "lng" | "date" | "notes" | "narration" | "travelMode">>;
 
 export function validateStopPatch(body: unknown): Result<StopPatch> {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
@@ -76,6 +77,10 @@ export function validateStopPatch(body: unknown): Result<StopPatch> {
     const r = text(b[field], field, max, false);
     if (!r.ok) return r;
     patch[field] = r.value;
+  }
+  if (b.travelMode !== undefined) {
+    if (!isTravelModeChoice(b.travelMode)) return fail("travelMode must be one of: auto, car, train, plane");
+    patch.travelMode = b.travelMode;
   }
   return { ok: true, value: patch };
 }

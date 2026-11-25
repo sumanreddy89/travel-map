@@ -1,5 +1,7 @@
 import { countryIso, ensureCountryAssets, findCountryForPoint, regionForPoint, type CountryAssets } from "./geo.js";
+import * as turf from "@turf/turf";
 import { fetchRoute } from "./routing.js";
+import { followsRoads, legMode } from "../lib/travelMode.js";
 import { generateClosingNarration, generateTravelNarration } from "./narration.js";
 import type { MapScene, RouteLeg, Stop } from "../types.js";
 
@@ -85,8 +87,10 @@ export async function buildMapScenes(
     let currentLeg: RouteLeg | undefined;
     let travel: MapScene["travel"];
     if (prevStop) {
-      const routeCoords = await fetchRoute(prevStop, toStop);
-      currentLeg = { from: toPoint(prevStop), to: toPoint(toStop), routeCoords };
+      const distanceKm = turf.distance(turf.point([prevStop.lng, prevStop.lat]), turf.point([toStop.lng, toStop.lat]), { units: "kilometers" });
+      const mode = legMode(toStop.travelMode, distanceKm);
+      const routeCoords = followsRoads(mode) ? await fetchRoute(prevStop, toStop) : null;
+      currentLeg = { from: toPoint(prevStop), to: toPoint(toStop), routeCoords, ...(mode ? { mode } : {}) };
 
       // Cache on toStop the same way closure lines are cached on the stop
       // that closes a country visit, so a re-render doesn't re-roll a fresh

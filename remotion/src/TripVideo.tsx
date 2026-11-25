@@ -2,7 +2,9 @@ import { AbsoluteFill, Audio, Loop, Sequence, staticFile } from "remotion";
 import { MapTransition } from "./scenes/MapTransition";
 import { StopContent } from "./scenes/StopContent";
 import { TitleCard } from "./scenes/TitleCard";
-import { tripOverview } from "./scenes/TripOverview";
+import { TripOverview, tripOverview } from "./scenes/TripOverview";
+import { EndCard } from "./scenes/EndCard";
+import { MOTION } from "./lib/motion";
 import { SHOW_MEDIA_PANEL_IN_MAP_SCENES } from "./config";
 import {
   FPS,
@@ -20,7 +22,9 @@ import { Credit } from "./components/Credit";
 type TimelineItem =
   | { kind: "title"; durationInFrames: number }
   | { kind: "map"; scene: MapScene; media: MediaItem[]; durationInFrames: number }
-  | { kind: "stop"; stop: Stop; durationInFrames: number };
+  | { kind: "stop"; stop: Stop; durationInFrames: number }
+  | { kind: "finale"; durationInFrames: number }
+  | { kind: "end"; durationInFrames: number };
 
 // Shared by both the component and calculateMetadata so the two can never
 // disagree on total length. mapScenes is already in chronological order,
@@ -70,6 +74,12 @@ function buildTimeline(trip: TripVideoProps["trip"], mapScenes: TripVideoProps["
 
   pushClosures(); // trailing closure for the last country visited
 
+  // After the last leg: ease out to the whole route and hold (MOTION.finale), then the end card.
+  if (mapScenes.length > 0) {
+    items.push({ kind: "finale", durationInFrames: MOTION.finale.easeOutFrames + MOTION.finale.holdFrames });
+    items.push({ kind: "end", durationInFrames: MOTION.finale.endCardFrames });
+  }
+
   return items;
 }
 
@@ -96,6 +106,22 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
         </Sequence>
       );
     }
+
+    if (item.kind === "finale" && overview) {
+      return (
+        <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Finale">
+          <TripOverview {...overview} durationInFrames={item.durationInFrames} variant="finale" />
+        </Sequence>
+      );
+    }
+    if (item.kind === "end") {
+      return (
+        <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="End card">
+          <EndCard title={trip.title} stops={trip.stops.map((s) => s.name)} countries={overview?.countries.length ?? 0} />
+        </Sequence>
+      );
+    }
+    if (item.kind === "finale") return null;
 
     if (item.kind === "map") {
       const name = item.scene.closure ? `Closure: ${item.scene.country.name}` : `Map: ${item.scene.toStop.name}`;

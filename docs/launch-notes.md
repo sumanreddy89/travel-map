@@ -19,7 +19,7 @@ Each post leads with the open-source project, which people can actually use toda
 
 > I built this to make the kind of travel video where a glowing route draws across the map and then cuts to your photos at each stop. You give it the places in order and the photos per stop; it renders an MP4 (landscape or portrait) with Remotion, Natural Earth terrain and OpenStreetMap routes, and can add AI-written narration.
 >
-> The repo has a keyless demo: `npm run demo:render` produces the Porto-to-Madrid film in the README with no API keys and no map download, with the network blocked during rendering.
+> The repo has a keyless demo: `npm run demo:render` produces the Porto-to-Palma film in the README with no API keys and no map download, with the network blocked during rendering.
 >
 > Running your own trips does need Node, a ~600 MB map download and API keys. I'm wondering whether a hosted version is worth building (paste a trip, get the MP4 by email; 3 free, then about €3 a film). It doesn't exist yet. If you'd use it, there's a waitlist here: https://sumanreddy89.github.io/travel-map/hosted/
 >
@@ -54,6 +54,6 @@ Attach the demo film, or `docs/demo/poster.jpg` if video uploads aren't allowed.
 
 Use the portrait demo (`out/demo-portrait.mp4`, 9:16).
 
-**Caption:** Made this from a list of three cities and four photos. Open source; a no-setup version might be next. Link in bio if you'd use it.
+**Caption:** Made this from a list of four cities and five photos. Open source; a no-setup version might be next. Link in bio if you'd use it.
 
 Put https://sumanreddy89.github.io/travel-map/hosted/ in the bio for the 3 weeks.

@@ -1,3 +1,4 @@
+import type { TravelMode, TravelModeChoice } from "./lib/travelMode.js";
 export type MediaItem = {
   id: string;
   type: "photo" | "video";
@@ -12,6 +13,8 @@ export type Stop = {
   lng: number;
   date?: string;
   notes?: string;
+  // How you got here from the previous stop ("auto" picks by distance). See lib/travelMode.ts.
+  travelMode?: TravelModeChoice;
   media: MediaItem[];
   narration?: string;
   audioPath?: string; // relative to DATA_DIR
@@ -57,6 +60,8 @@ export type RouteLeg = {
   from: RouteStopPoint;
   to: RouteStopPoint;
   routeCoords: [number, number][] | null;
+  // The vehicle drawn on this leg; absent means the plain travelling dot.
+  mode?: TravelMode;
 };
 
 export type MapScene = {

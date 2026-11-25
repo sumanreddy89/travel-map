@@ -25,6 +25,10 @@ import {
 } from "../lib/polyline";
 import { MediaKenBurns } from "../components/MediaKenBurns";
 import { OsmCredit } from "../components/Credit";
+import { Vehicle } from "../components/Vehicle";
+import { headingAt } from "../lib/heading";
+import { MOTION, labelMotion, pinScale, routeProgress } from "../lib/motion";
+import { placeLabels, type LabelPlacement } from "../lib/labels";
 import type { MapScene, MediaItem, RouteLeg, RouteStopPoint } from "../types";
 
 const GLOW_COLOR = "#FFD24A";
@@ -35,9 +39,9 @@ const BORDER_COLOR = "rgba(70,20,0,0.45)";
 const NEIGHBOUR_FILL = "rgba(232,121,31,0.16)";
 const NEIGHBOUR_STROKE = "rgba(255,210,74,0.35)";
 const PANEL_WIDTH_RATIO = 0.38;
-// The map camera: how far a scene pushes in, and how much of the way its focus drifts to the centre.
-const CAMERA_PUSH = 1.22;
-const CAMERA_DRIFT = 0.35;
+// The map camera (MOTION.camera): how far a scene pushes in, and how much its focus drifts to the centre.
+const CAMERA_PUSH = MOTION.camera.push;
+const CAMERA_DRIFT = MOTION.camera.drift;
 // Natural Earth's admin-1 layer is county/district-level for some countries
 // (Cyprus: 5 districts) but municipality-level for others (Slovenia: 193) -
 // past a certain count the internal borders stop reading as "one country's
@@ -158,23 +162,16 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
 
   // The line-draw (and the traveling dot on it) spans almost the whole scene
   // so movement reads as slow and persistent rather than a quick blip early on.
-  const introPad = 18;
-  const outroPad = currentLeg ? 30 : 16;
-  const drawStart = currentLeg ? introPad : 0;
+  // Timings live in lib/motion.ts (MOTION) so they can be tuned in one place.
+  const outroPad = currentLeg ? MOTION.route.transitOutroPad : MOTION.route.arrivalOutroPad;
+  const drawStart = currentLeg ? MOTION.route.introPad : 0;
   const drawEnd = currentLeg ? Math.max(drawStart + 10, durationInFrames - outroPad) : 0;
-  const drawProgress = currentLeg
-    ? interpolate(frame, [drawStart, drawEnd], [0, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-        easing: Easing.inOut(Easing.cubic),
-      })
-    : 1;
+  const drawProgress = currentLeg ? routeProgress(frame, drawStart, drawEnd) : 1;
 
-  const destinationPop = spring({
-    frame: frame - (currentLeg ? drawEnd - 6 : 16),
-    fps,
-    config: { damping: 12, stiffness: 160 },
-  });
+  // The destination pin pops (with a small bounce) as the line reaches it, then its label slides up.
+  const popAt = currentLeg ? drawEnd - MOTION.pin.leadFrames : MOTION.pin.arrivalPopAt;
+  const destinationPop = pinScale(frame, fps, popAt);
+  const destinationLabel = labelMotion(frame, popAt);
 
   const visibleCurrentPoints = truncatedPath(currentLegPoints, currentLegLens, currentLegTotalLen * drawProgress);
   const currentLinePathD = pointsToPath(visibleCurrentPoints);
@@ -185,7 +182,7 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
     ? pointAtLength(currentLegPoints, currentLegLens, currentLegTotalLen * drawProgress)
     : null;
   const travelerFade = currentLeg
-    ? interpolate(frame, [drawStart, drawStart + 4, drawEnd - 2, drawEnd + 4], [0, 1, 1, 0], {
+    ? interpolate(frame, [drawStart, drawStart + MOTION.vehicle.fadeInFrames, drawEnd - 2, drawEnd + MOTION.vehicle.fadeOutFrames], [0, 1, 1, 0], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       })
@@ -198,6 +195,12 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   // shown immediately/statically rather than popping in again.
   const animatedPointId = isClosure ? undefined : currentLeg ? currentLeg.to.id : toStop.id;
   const staticPoints = isClosure ? allPoints : allPoints.filter((p) => p.id !== animatedPointId);
+  // Names placed so close stops don't stack their labels (in the pin's own units, before `scale`).
+  const labelSpot = useMemo(() => {
+    const pts = allPoints.map((p) => projectedById.get(p.id) ?? ([0, 0] as Point));
+    const spots = placeLabels(pts.map(([x, y]) => [x / scale, y / scale] as Point), allPoints.map((p) => p.name), 30, 24, 13);
+    return new Map(allPoints.map((p, i) => [p.id, spots[i]]));
+  }, [allPoints, projectedById, scale]);
   const animatedPoint = animatedPointId ? allPoints.find((p) => p.id === animatedPointId) : undefined;
   const animatedPt = animatedPointId
     ? (projectedById.get(animatedPointId) ?? ([width / 2, height / 2] as Point))
@@ -238,6 +241,11 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
 
       <svg width={width} height={height} style={{ position: "absolute", top: 0, left: 0 }}>
         <defs>
+          <radialGradient id="headGlow">
+            <stop offset="0%" stopColor="#FFF3C4" stopOpacity={1} />
+            <stop offset="35%" stopColor={GLOW_COLOR} stopOpacity={0.55} />
+            <stop offset="100%" stopColor={GLOW_COLOR} stopOpacity={0} />
+          </radialGradient>
           <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="22" result="blur" />
             <feColorMatrix in="blur" mode="matrix" values="0 0 0 0 1  0 0 0 0 0.82  0 0 0 0 0.29  0 0 0 0.9 0" />
@@ -317,21 +325,27 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
           />
         )}
 
+        {/* A soft glow at the tip of the line while it draws. */}
+        {currentLeg && travelerPos && drawProgress > 0 && drawProgress < 1 && (
+          <circle cx={travelerPos[0]} cy={travelerPos[1]} r={MOTION.head.glowRadius * scale} fill="url(#headGlow)" opacity={MOTION.head.glowOpacity * travelerFade} />
+        )}
         {currentLeg && travelerPos && (
-          <g
-            transform={`translate(${travelerPos[0]}, ${travelerPos[1]}) scale(${travelerPulse * scale})`}
+          <Vehicle
+            mode={currentLeg.mode}
+            x={travelerPos[0]}
+            y={travelerPos[1]}
+            heading={headingAt(currentLegPoints, currentLegLens, currentLegTotalLen * drawProgress)}
+            scale={scale}
             opacity={travelerFade}
-          >
-            <circle r={11} fill={GLOW_COLOR} filter="url(#glow)" opacity={0.9} />
-            <circle r={6} fill="#FFF7E6" stroke="#7A2200" strokeWidth={2} />
-          </g>
+            pulse={travelerPulse}
+          />
         )}
 
         <g opacity={fadeIn}>
           {staticPoints.map((p) => {
             const pt = projectedById.get(p.id);
             return pt ? (
-              <PinAndLabel key={p.id} x={pt[0]} y={pt[1]} label={p.name} scale={scale} />
+              <PinAndLabel key={p.id} x={pt[0]} y={pt[1]} label={p.name} scale={scale} spot={labelSpot.get(p.id)} />
             ) : null;
           })}
         </g>
@@ -340,7 +354,11 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
             x={animatedPt[0]}
             y={animatedPt[1]}
             label={animatedPoint.name}
-            scale={destinationPop * scale}
+            scale={scale}
+            pinPop={destinationPop}
+            labelOpacity={destinationLabel.opacity}
+            labelDy={destinationLabel.dy}
+            spot={labelSpot.get(animatedPoint.id)}
           />
         )}
         </g>
@@ -435,19 +453,33 @@ export const MapTransition: React.FC<MapTransitionProps> = ({ scene, media, dura
   );
 };
 
-const PinAndLabel: React.FC<{ x: number; y: number; label: string; scale: number }> = ({ x, y, label, scale }) => {
-  if (scale <= 0.01) return null;
+// The pin and its label animate separately: the pin pops (pinPop, a spring), then the label
+// fades in while sliding up (labelOpacity, labelDy). Static pins pass the defaults.
+const PinAndLabel: React.FC<{ x: number; y: number; label: string; scale: number; pinPop?: number; labelOpacity?: number; labelDy?: number; spot?: LabelPlacement }> = ({
+  x,
+  y,
+  label,
+  scale,
+  pinPop = 1,
+  labelOpacity = 1,
+  labelDy = 0,
+  spot = { dx: 0, dy: -24, anchor: "middle" },
+}) => {
+  if (scale <= 0.01 || pinPop <= 0.01) return null;
   return (
     <g transform={`translate(${x}, ${y}) scale(${scale})`}>
-      <circle r={13} fill="#D8280C" stroke="#FFD24A" strokeWidth={3} />
-      <path
-        d="M0,-6 L1.8,-1.8 L6.3,-1.8 L2.7,1 L4,5.5 L0,2.8 L-4,5.5 L-2.7,1 L-6.3,-1.8 L-1.8,-1.8 Z"
-        fill="#FFE9B0"
-      />
+      <g transform={`scale(${pinPop})`}>
+        <circle r={13} fill="#D8280C" stroke="#FFD24A" strokeWidth={3} />
+        <path
+          d="M0,-6 L1.8,-1.8 L6.3,-1.8 L2.7,1 L4,5.5 L0,2.8 L-4,5.5 L-2.7,1 L-6.3,-1.8 L-1.8,-1.8 Z"
+          fill="#FFE9B0"
+        />
+      </g>
       <text
-        x={0}
-        y={-24}
-        textAnchor="middle"
+        x={spot.dx}
+        y={spot.dy + labelDy}
+        opacity={labelOpacity}
+        textAnchor={spot.anchor}
         fill="white"
         fontFamily={fontFamily}
         fontWeight={700}

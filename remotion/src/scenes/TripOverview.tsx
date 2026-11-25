@@ -1,20 +1,28 @@
 import { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { getLayout } from "../lib/layout";
+import { MOTION } from "../lib/motion";
 import { useTerrainReady } from "../lib/terrain";
-import { buildProjection, geometryToPath, unionBbox, type Bbox } from "../lib/projection";
+import { buildProjection, geometryToPath, paddedPointBbox, unionBbox, type Bbox } from "../lib/projection";
+import { fontFamily } from "../lib/fonts";
+import { OsmCredit } from "../components/Credit";
+import { placeLabels } from "../lib/labels";
 import { cumulativeLengths, pointsToPath, quadraticBezierPoints, truncatedPath, type Point } from "../lib/polyline";
 import type { MapScene, RouteLeg, RouteStopPoint } from "../types";
 
-// The opener's establishing shot: every country on the trip on the amber terrain, and the whole
-// route drawing itself across them while the camera slowly pulls back. The title sits on top.
+// The whole trip on one map, used twice:
+// - "opener": every country on the trip, the route drawing itself, a slow pull-back; the title
+//   card sits on top.
+// - "finale": after the last leg, the camera eases out from the last stop to frame the whole
+//   route with every pin and label (fitted to the route, with the layout's padding, so nothing is
+//   cut off in portrait or landscape), then holds.
 
 export type OverviewCountry = Pick<MapScene["country"], "iso" | "bbox" | "imageBbox" | "terrainRelPath" | "countryGeometry">;
 export type TripOverviewData = { countries: OverviewCountry[]; legs: RouteLeg[]; stops: RouteStopPoint[] };
 
 const GLOW_COLOR = "#FFD24A";
 const LINE_COLOR = "#FBEFDD";
-const PULL_BACK_FROM = 1.12;
+
 
 // Countries, legs and stops in trip order, each once, from the map scenes.
 export function tripOverview(mapScenes: MapScene[]): TripOverviewData | null {
@@ -33,16 +41,33 @@ export function tripOverview(mapScenes: MapScene[]): TripOverviewData | null {
   return countries.size ? { countries: [...countries.values()], legs: [...legs.values()], stops: [...stops.values()] } : null;
 }
 
-export const TripOverview: React.FC<TripOverviewData & { durationInFrames: number }> = ({ countries, legs, stops, durationInFrames }) => {
+export const TripOverview: React.FC<TripOverviewData & { durationInFrames: number; variant?: "opener" | "finale" }> = ({
+  countries,
+  legs,
+  stops,
+  durationInFrames,
+  variant = "opener",
+}) => {
+  const finale = variant === "finale";
   useTerrainReady(countries.map((c) => staticFile(c.terrainRelPath)));
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const layout = getLayout(width, height);
 
-  const projection = useMemo(
-    () => buildProjection(unionBbox(countries.map((c) => c.bbox as Bbox)), width, height, layout.mapPadding),
+  const projection = useMemo(() => {
+    const countriesBox = unionBbox(countries.map((c) => c.bbox as Bbox));
+    if (!finale) return buildProjection(countriesBox, width, height, layout.mapPadding);
+    // The finale fits the route itself (stops and road lines), not whole countries.
+    const pts = [...stops, ...legs.flatMap((l) => (l.routeCoords ?? []).map(([lng, lat]) => ({ lng, lat })))];
+    const box = paddedPointBbox(pts, width / height, {
+      minSpanLng: (countriesBox[2] - countriesBox[0]) * 0.3,
+      minSpanLat: (countriesBox[3] - countriesBox[1]) * 0.3,
+      paddingRatio: 0.3,
+    });
+    return buildProjection(box, width, height, layout.mapPadding);
+  },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- layout is derived from width/height
-    [countries, width, height]
+    [countries, stops, legs, finale, width, height]
   );
   const shapes = useMemo(() => countries.map((c) => ({ c, d: geometryToPath(projection, c.countryGeometry) })), [countries, projection]);
 
@@ -64,19 +89,35 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
   const total = lens[lens.length - 1] ?? 0;
   const stopPts = useMemo(() => stops.map((s) => (projection([s.lng, s.lat]) ?? [width / 2, height / 2]) as Point), [stops, projection, width, height]);
 
-  const fadeIn = interpolate(frame, [0, 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const draw = interpolate(frame, [8, Math.max(9, durationInFrames - 14)], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.inOut(Easing.cubic),
-  });
-  const zoom = interpolate(frame, [0, durationInFrames], [PULL_BACK_FROM, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.out(Easing.quad),
-  });
+  const fadeIn = interpolate(frame, [0, finale ? 6 : 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const draw = finale
+    ? 1
+    : interpolate(frame, [8, Math.max(9, durationInFrames - 14)], [0, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+        easing: Easing.inOut(Easing.cubic),
+      });
   const cx = width / 2;
   const cy = height / 2;
+  let camera: string;
+  if (finale) {
+    // Start close on the last stop (centred), ease out until the whole route is in frame, then hold.
+    const t = interpolate(frame, [0, MOTION.finale.easeOutFrames], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: Easing.inOut(Easing.cubic),
+    });
+    const [fx, fy] = stopPts[stopPts.length - 1] ?? [cx, cy];
+    const z = MOTION.finale.zoomFrom + (1 - MOTION.finale.zoomFrom) * t;
+    camera = `translate(${cx + (fx - cx) * t} ${cy + (fy - cy) * t}) scale(${z}) translate(${-fx} ${-fy})`;
+  } else {
+    const zoom = interpolate(frame, [0, durationInFrames], [MOTION.opener.pullBackFrom, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: Easing.out(Easing.quad),
+    });
+    camera = `translate(${cx} ${cy}) scale(${zoom}) translate(${-cx} ${-cy})`;
+  }
   const drawn = truncatedPath(route, lens, total * draw);
   // Each stop's dot appears as the line reaches it.
   const reachedAt = stopPts.map((p) => {
@@ -104,7 +145,7 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
             </clipPath>
           ))}
         </defs>
-        <g opacity={fadeIn} transform={`translate(${cx} ${cy}) scale(${zoom}) translate(${-cx} ${-cy})`}>
+        <g opacity={fadeIn} transform={camera}>
           {shapes.map(({ c, d }) => (
             <path key={`g-${c.iso}`} d={d} fill={GLOW_COLOR} filter="url(#ovGlow)" opacity={0.6} />
           ))}
@@ -124,10 +165,30 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
           {stopPts.map((p, i) =>
             draw >= reachedAt[i] ? <circle key={i} cx={p[0]} cy={p[1]} r={9 * layout.mark} fill="#D8280C" stroke={GLOW_COLOR} strokeWidth={3} /> : null
           )}
+          {finale &&
+            placeLabels(stopPts, stops.map((s) => s.name), 30 * layout.mark, 22 * layout.mark, 10 * layout.mark).map((spot, i) => (
+              <text
+                key={`l-${i}`}
+                x={stopPts[i][0] + spot.dx}
+                y={stopPts[i][1] + spot.dy}
+                textAnchor={spot.anchor}
+                fill="white"
+                fontFamily={fontFamily}
+                fontWeight={700}
+                fontSize={30 * layout.mark}
+                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.85)" }}
+              >
+                {stops[i].name}
+              </text>
+            ))}
         </g>
       </svg>
-      {/* Darken the bottom, where the title sits, so it reads over the map. */}
-      <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(11,7,4,0.85) 0%, rgba(11,7,4,0.45) 30%, rgba(11,7,4,0) 55%)" }} />
+      {/* Opener: darken the bottom, where the title sits, so it reads over the map. */}
+      {!finale && (
+        <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(11,7,4,0.85) 0%, rgba(11,7,4,0.45) 30%, rgba(11,7,4,0) 55%)" }} />
+      )}
+      {/* Road lines come from OpenStreetMap, whose licence needs the credit wherever they show. */}
+      {legs.some((l) => (l.routeCoords?.length ?? 0) > 1) && <OsmCredit />}
     </AbsoluteFill>
   );
 };

@@ -1,6 +1,6 @@
 {
-  "title": "Porto to Madrid",
-  "titleCardNarration": "Five days, three cities, two countries: from the Atlantic to the heart of Spain.",
+  "title": "Porto to Palma",
+  "titleCardNarration": "A week, four cities, two countries: from the Atlantic to the Mediterranean.",
   "orientation": "landscape",
   "stops": [
     {
@@ -28,7 +28,8 @@
         "salamanca-plaza-mayor.jpg"
       ],
       "travelNarration": "East over the border, from the Atlantic into Spain.",
-      "travelNarrationKey": "[\"Porto\",\"Salamanca\",false]"
+      "travelNarrationKey": "[\"Porto\",\"Salamanca\",false]",
+      "travelMode": "car"
     },
     {
       "id": "demo-madri",
@@ -41,9 +42,25 @@
       "media": [
         "madrid-plaza-mayor.jpg"
       ],
-      "travelNarration": "One last leg, south-east to the capital.",
-      "travelNarrationKey": "[\"Salamanca\",\"Madrid\",true]",
-      "closureNarration": "And that was Spain, the end of five days from Porto to Madrid."
+      "travelNarration": "By train, south-east to the capital.",
+      "travelNarrationKey": "[\"Salamanca\",\"Madrid\",false]",
+      "travelMode": "train"
+    },
+    {
+      "id": "demo-palma",
+      "name": "Palma",
+      "lat": 39.5675,
+      "lng": 2.6484,
+      "date": "Day 7",
+      "notes": "La Seu, the cathedral above the sea.",
+      "narration": "And Palma to finish: La Seu, the cathedral that rises straight out of the sea wall.",
+      "media": [
+        "palma-cathedral.jpg"
+      ],
+      "travelMode": "plane",
+      "travelNarration": "A short flight out over the Mediterranean to Mallorca.",
+      "travelNarrationKey": "[\"Madrid\",\"Palma\",true]",
+      "closureNarration": "And that was Spain: from the border to the sea."
     }
   ]
 }
