@@ -125,3 +125,9 @@ to build the video:
 ```bash
 npm test
 ```
+
+## Licence
+
+Code: [MIT](LICENSE). The music once tracked in this repo is not covered and
+stays all rights reserved; demo assets keep their own licences. See
+[NOTICE.md](NOTICE.md) and [docs/demo/ASSETS.md](docs/demo/ASSETS.md).
