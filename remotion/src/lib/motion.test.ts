@@ -1,7 +1,7 @@
 // Run: npm test (from the repo root)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MOTION, labelMotion, pinScale, routeProgress } from "./motion";
+import { MOTION, countUp, labelMotion, pinScale, routeProgress } from "./motion";
 
 test("the route eases in and out: 0 at the start, 1 at the end, slow at both ends", () => {
   assert.equal(routeProgress(0, 10, 100), 0);
@@ -39,4 +39,15 @@ test("the config is internally consistent", () => {
   assert.ok(MOTION.pin.leadFrames < MOTION.route.transitOutroPad, "the pin pops before the scene ends");
   assert.ok(MOTION.camera.push >= 1, "the camera never zooms out past the map's edge");
   assert.ok(MOTION.finale.holdFrames >= 40 && MOTION.finale.holdFrames <= 50, "the finale holds about 1.5 s");
+});
+
+test("stats count up from 0 to the exact value, and the opener has time for all of them", () => {
+  assert.equal(countUp(0, 10, 4213), 0);
+  assert.equal(countUp(10, 10, 4213), 0);
+  assert.equal(countUp(10 + MOTION.year.countUpFrames, 10, 4213), 4213);
+  assert.equal(countUp(999, 10, 7), 7);
+  const mid = countUp(10 + MOTION.year.countUpFrames / 2, 10, 1000);
+  assert.ok(mid > 500 && mid < 1000, "eases out: past halfway at the midpoint");
+  const lastStart = MOTION.year.titleInFrames + 4 * MOTION.year.staggerFrames;
+  assert.ok(lastStart + MOTION.year.countUpFrames + 20 <= MOTION.year.openerFrames, "the last number settles with time to read it");
 });

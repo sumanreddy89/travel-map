@@ -1,0 +1,9 @@
+# The keyless "Year in travel" demo: an invented year, not anyone's real travel.
+# Same format as POST /api/trips/year: city | date | how you got there (plane, train or car).
+Lisbon | 2026-02-14
+Madrid | 2026-03-20 | plane
+Barcelona | 2026-04-02 | train
+Paris | 2026-06-11 | plane
+Amsterdam | 2026-07-03 | train
+Berlin | 2026-09-18 | train
+Prague | 2026-10-24 | car

@@ -14,7 +14,9 @@ function toPoint(stop: Stop) {
 export async function buildMapScenes(
   stops: Stop[],
   tripTitle: string,
-  warnings: string[] = []
+  warnings: string[] = [],
+  // false for films with no voiceover (Year in travel): no travel or closing lines are written.
+  { narrate = true }: { narrate?: boolean } = {}
 ): Promise<MapScene[]> {
   const scenes: MapScene[] = [];
 
@@ -47,7 +49,7 @@ export async function buildMapScenes(
     // cache the closure line on it so re-rendering the same trip doesn't
     // re-roll a fresh Claude + TTS call (and its failure risk) every time.
     const lastStop = prevStop;
-    if (!lastStop.closureNarration) {
+    if (narrate && !lastStop.closureNarration) {
       try {
         lastStop.closureNarration = await generateClosingNarration(tripTitle, streakCountry.name);
       } catch (err) {
@@ -99,7 +101,7 @@ export async function buildMapScenes(
       // stops changes what it should say, so it's rewritten and re-voiced.
       const isFinalLeg = i === stops.length - 1;
       const narrationKey = JSON.stringify([prevStop.name, toStop.name, isFinalLeg]);
-      if (!toStop.travelNarration || toStop.travelNarrationKey !== narrationKey) {
+      if (narrate && (!toStop.travelNarration || toStop.travelNarrationKey !== narrationKey)) {
         const otherLines = stops
           .filter((s) => s !== toStop && s.travelNarration)
           .map((s) => s.travelNarration as string);

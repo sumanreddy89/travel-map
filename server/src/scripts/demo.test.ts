@@ -60,3 +60,19 @@ test("map scenes wait for their terrain, and the font wait lives in a component"
   // no delayRender outside a hook in the font module
   assert.doesNotMatch(src("lib/fonts.ts").replace(/export function useBundledFont[\s\S]*$/, ""), /delayRender\(/);
 });
+
+test("the Year in travel demo is checked in, keyless, and every demo texture is used", () => {
+  const year = JSON.parse(fs.readFileSync(path.join(REMOTION_DIR, "src", "demo", "yearDemoProps.json"), "utf-8"));
+  assert.equal(year.assetBase, "demo");
+  assert.match(String(year.trip.yearInTravel?.year), /^\d{4}$/);
+  assert.ok(year.trip.stops.length >= 6 && year.trip.stops.length <= 8, "a sample year of 6 to 8 cities");
+  const raw = JSON.stringify(year);
+  assert.ok(!/https?:\/\//.test(raw), "no web addresses to fetch");
+  assert.ok(!/audioPath/.test(raw), "no voiceover");
+  const used = new Set<string>();
+  for (const p of [props, year]) for (const scene of p.mapScenes) {
+    assert.ok(exists(scene.country.terrainRelPath), scene.country.terrainRelPath);
+    used.add(path.basename(scene.country.terrainRelPath));
+  }
+  for (const f of fs.readdirSync(path.join(REMOTION_PUBLIC_DIR, "demo", "terrain"))) assert.ok(used.has(f), `${f} isn't used by either demo`);
+});

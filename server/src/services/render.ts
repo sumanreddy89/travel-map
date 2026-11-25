@@ -90,13 +90,15 @@ function saveToStop(tripId: string, stopId: string, apply: (latest: Stop) => voi
 async function runJob(tripId: string): Promise<void> {
   const trip = await readTrip(tripId);
   const warnings: string[] = [];
+  // A "Year in travel" film has no narration or voiceover: no text is written, so nothing is voiced.
+  const narrate = !trip.yearInTravel;
 
   // 1. Narration - both per-stop and the opening title card line. Skipped
   // whenever text is already present, which lets a user pre-write/edit
   // narration via the UI before rendering and have that text used as-is.
   // Best-effort like the voiceover below: a failed line plays silent and is
   // tried again on the next render.
-  if (!trip.titleCardNarration) {
+  if (narrate && !trip.titleCardNarration) {
     setJob(tripId, { message: "Writing opening line..." });
     try {
       const line = await generateOpeningNarration(trip);
@@ -110,7 +112,7 @@ async function runJob(tripId: string): Promise<void> {
     }
   }
   for (const stop of trip.stops) {
-    if (!stop.narration) {
+    if (narrate && !stop.narration) {
       setJob(tripId, { message: `Writing narration for ${stop.name}...` });
       try {
         const line = await generateNarration(trip.title, stop);
@@ -180,7 +182,7 @@ async function runJob(tripId: string): Promise<void> {
   // recap scene (with its own generated closing line) wherever a country
   // visit wraps up.
   setJob(tripId, { state: "mapping", message: "Preparing map animation..." });
-  const mapScenes = await buildMapScenes(trip.stops, trip.title, warnings);
+  const mapScenes = await buildMapScenes(trip.stops, trip.title, warnings, { narrate });
   // buildMapScenes caches new closure and travel lines onto the stops it was
   // given (mutated in place) - persist those so a later render reuses them.
   await updateTrip(tripId, (latest) => {

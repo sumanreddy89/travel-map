@@ -24,6 +24,24 @@ npm run demo:render    # out/demo-landscape.mp4
 
 Add `-- --orientation portrait` to either command for the 1080×1920 phone version. The demo renders a checked-in, illustrative trip with the network blocked. Photo and map sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: [docs/demo/README.md](docs/demo/README.md).
 
+### Year in travel
+
+A recap film of your year: it opens by counting up your countries, cities, kilometres and flights, flies the whole route, and ends on a share card with the same numbers. Try the sample year, also keyless and offline:
+
+```bash
+node remotion/scripts/demo.mjs render --trip year                         # out/demo-year-landscape.mp4
+node remotion/scripts/demo.mjs render --trip year --orientation portrait  # out/demo-year-portrait.mp4
+```
+
+For your own year, with the server running (see below), paste one city per line, in order: `city | date | how you got there` (plane, train or car; plane if left out). Add a country when a name is ambiguous (`Valencia, ES`). The year comes from your dates, or a first line like `year: 2026`.
+
+```bash
+curl -s localhost:4000/api/trips/year -H 'content-type: application/json' \
+  -d '{"text": "Lisbon | 2026-02-14\nMadrid | 2026-03-20 | plane\nBarcelona | 2026-04-02 | train"}'
+```
+
+Cities are matched against a bundled list of about 1,250 major cities ([Natural Earth](https://www.naturalearthdata.com/), public domain; `server/places/cities.json`), so nothing is looked up online. A line it can't read comes back as an error naming the line. Year films have no narration or voiceover, so they need no API keys beyond the map data.
+
 ## Full workflow: your own trips
 
 Making films of your own trips needs API keys (narration and voiceover use paid services) and a one-time ~600MB map-data download, as below. What leaves your machine is listed under [What stays on your machine](#what-stays-on-your-machine).
