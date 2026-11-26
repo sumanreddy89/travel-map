@@ -60,15 +60,21 @@ export function envChecks(envText: string | null): Check[] {
 
 export function geoChecks(root: string, exists: (p: string) => boolean): Check[] {
   const converted = ["countries.json", "admin1.json"].every((f) => exists(path.join(root, "remotion/public/geo", f)));
+  const relief = exists(path.join(root, "data/geo-raw/relief_hr/NE1_LR_LC_SR_W.tif"));
   const raw = exists(path.join(root, "data/geo-raw"));
+  const lite = exists(path.join(root, "geo-lite/countries.json"));
   return [
     {
-      name: "Map boundaries converted (remotion/public/geo)",
-      ok: converted,
-      required: true,
-      fix: raw
-        ? "Raw data is in data/geo-raw; convert it: cd server && npx tsx src/scripts/convertGeo.ts"
-        : "Download the Natural Earth files and convert them: see 'Cartography data' in the README.",
+      name: "Map data (the bundled lite map works; the full download is sharper)",
+      ok: converted && relief,
+      // The bundled map is enough to make every film, so the full download is optional.
+      required: !lite,
+      detail: converted && relief ? "full" : "lite",
+      fix: !lite
+        ? "geo-lite/ is missing from your checkout; restore it with git checkout -- geo-lite"
+        : raw && !converted
+          ? "Using the bundled lite map. Raw data is in data/geo-raw; convert it for the full map: cd server && npx tsx src/scripts/convertGeo.ts"
+          : "Using the bundled lite map. For sharper terrain and borders, see 'Full map data' in the README (~600 MB, no keys).",
     },
   ];
 }

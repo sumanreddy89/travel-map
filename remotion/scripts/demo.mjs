@@ -128,7 +128,9 @@ async function setup() {
   const base = checkDemoFiles();
   const orientation = orientationArg();
   const props = { ...base, trip: { ...base.trip, orientation } };
-  const real = await browserPath(false);
+  // npm run year already went online to prepare the map, so it fetches the browser too, before
+  // the network is blocked; the keyless demo keeps that as the separate demo:prepare step.
+  const real = await browserPath(Boolean(CUSTOM_PROPS));
   const attempts = [];
   blockNetwork(attempts);
   const { bundle } = await import("@remotion/bundler");

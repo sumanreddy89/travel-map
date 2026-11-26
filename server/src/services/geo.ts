@@ -1,3 +1,4 @@
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import * as turf from "@turf/turf";
@@ -5,19 +6,38 @@ import sharp from "sharp";
 import { REMOTION_PUBLIC_DIR, REPO_ROOT } from "../config.js";
 
 const GEO_DIR = path.join(REMOTION_PUBLIC_DIR, "geo");
-const COUNTRIES_FILE = path.join(GEO_DIR, "countries.json");
-const ADMIN1_FILE = path.join(GEO_DIR, "admin1.json");
-const RELIEF_TIF = path.join(REPO_ROOT, "data", "geo-raw", "relief_hr", "NE1_LR_LC_SR_W.tif");
-const RELIEF_W = 16200;
-const RELIEF_H = 8100;
+// The small map checked in to the repo (scripts/buildLiteGeo.ts), used until the full Natural
+// Earth download is in place. Same data and projection, simpler shapes and a half-size relief.
+export const LITE_DIR = path.join(REPO_ROOT, "geo-lite");
 const MIN_TEXTURE_PX = 1400; // upsample small-country crops so the texture isn't blocky at video scale
+
+export type GeoSource = { kind: "full" | "lite"; countries: string; admin1: string; relief: string };
+
+/** The full download when all three files are there, otherwise the bundled lite map. */
+export function pickGeoSource(exists: (p: string) => boolean = fsSync.existsSync): GeoSource {
+  const full: GeoSource = {
+    kind: "full",
+    countries: path.join(GEO_DIR, "countries.json"),
+    admin1: path.join(GEO_DIR, "admin1.json"),
+    relief: path.join(REPO_ROOT, "data", "geo-raw", "relief_hr", "NE1_LR_LC_SR_W.tif"),
+  };
+  if ([full.countries, full.admin1, full.relief].every(exists)) return full;
+  return { kind: "lite", countries: path.join(LITE_DIR, "countries.json"), admin1: path.join(LITE_DIR, "admin1.json"), relief: path.join(LITE_DIR, "relief.jpg") };
+}
+
+let source: GeoSource | undefined;
+export const geoSource = (): GeoSource => (source ??= pickGeoSource());
 
 // Same linear equirectangular mapping used both for the raster crop and,
 // independently, by the browser-side d3-geo projection in the Remotion scene -
 // keeping both in the same projection is what makes the texture line up with
-// the vector outline with zero warping.
-const toPx = (lng: number) => Math.round(((lng + 180) / 360) * RELIEF_W);
-const toPy = (lat: number) => Math.round(((90 - lat) / 180) * RELIEF_H);
+// the vector outline with zero warping. The relief covers the whole world, so its size sets
+// the scale (16200 x 8100 full, 8100 x 4050 lite).
+let reliefSize: Promise<{ w: number; h: number }> | undefined;
+const getReliefSize = () =>
+  (reliefSize ??= sharp(geoSource().relief, { limitInputPixels: false })
+    .metadata()
+    .then((m) => ({ w: m.width!, h: m.height! })));
 
 type FC = GeoJSON.FeatureCollection;
 
@@ -26,14 +46,14 @@ let admin1Promise: Promise<FC> | undefined;
 
 async function loadCountries(): Promise<FC> {
   if (!countriesPromise) {
-    countriesPromise = fs.readFile(COUNTRIES_FILE, "utf-8").then((raw) => JSON.parse(raw));
+    countriesPromise = fs.readFile(geoSource().countries, "utf-8").then((raw) => JSON.parse(raw));
   }
   return countriesPromise;
 }
 
 async function loadAdmin1(): Promise<FC> {
   if (!admin1Promise) {
-    admin1Promise = fs.readFile(ADMIN1_FILE, "utf-8").then((raw) => JSON.parse(raw));
+    admin1Promise = fs.readFile(geoSource().admin1, "utf-8").then((raw) => JSON.parse(raw));
   }
   return admin1Promise;
 }
@@ -178,8 +198,10 @@ async function buildCountryAssets(
   await fs.mkdir(geoDir, { recursive: true });
   await fs.mkdir(terrainDir, { recursive: true });
 
-  const geoFile = path.join(geoDir, `${assetKey}.json`);
-  const terrainFile = path.join(terrainDir, `${assetKey}.png`);
+  // Lite and full assets are cached apart, so downloading the full map later gives sharp ones.
+  const fileKey = geoSource().kind === "lite" ? `${assetKey}-lite` : assetKey;
+  const geoFile = path.join(geoDir, `${fileKey}.json`);
+  const terrainFile = path.join(terrainDir, `${fileKey}.png`);
   const bbox = turf.bbox(feature) as [number, number, number, number];
   const name = String((feature.properties as any)?.name ?? iso);
 
@@ -206,7 +228,7 @@ async function buildCountryAssets(
     name,
     bbox,
     imageBbox: paddedBbox(bbox),
-    terrainRelPath: `terrain/${assetKey}.png`,
+    terrainRelPath: `terrain/${fileKey}.png`,
     countryGeometry: cached.country.geometry,
     admin1: cached.admin1,
   };
@@ -239,6 +261,9 @@ async function buildTerrainPng(
   outFile: string
 ): Promise<void> {
   const [pMinLng, pMinLat, pMaxLng, pMaxLat] = paddedBbox(bbox);
+  const { w: RELIEF_W, h: RELIEF_H } = await getReliefSize();
+  const toPx = (lng: number) => Math.round(((lng + 180) / 360) * RELIEF_W);
+  const toPy = (lat: number) => Math.round(((90 - lat) / 180) * RELIEF_H);
 
   const left = toPx(pMinLng);
   const right = toPx(pMaxLng);
@@ -248,13 +273,13 @@ async function buildTerrainPng(
   const height = Math.max(2, bottom - top);
 
   // Upsample small/medium countries so the relief texture isn't blocky once
-  // it's displayed at video scale - the raw raster is only ~45px/degree,
+  // it's displayed at video scale - the raw raster is only ~45px/degree (lite: ~22),
   // which is a handful of pixels across for a small country like Cyprus.
   const upscale = Math.max(1, MIN_TEXTURE_PX / Math.max(width, height));
   const outWidth = Math.round(width * upscale);
   const outHeight = Math.round(height * upscale);
 
-  let resizedPipeline = sharp(RELIEF_TIF)
+  let resizedPipeline = sharp(geoSource().relief, { limitInputPixels: false })
     .extract({ left, top, width, height })
     .resize(outWidth, outHeight, { kernel: "lanczos3" });
   if (upscale > 3) resizedPipeline = resizedPipeline.blur(1.2);

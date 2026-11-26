@@ -1,0 +1,40 @@
+name: Bug
+description: Something broke or looks wrong.
+labels: [bug]
+body:
+  - type: dropdown
+    id: what
+    attributes:
+      label: What were you making?
+      options:
+        - A year film (npm run year)
+        - The keyless demo (npm run demo:render)
+        - A trip film (web app, with keys)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: The command and what it printed
+      description: Paste the command and the last 20 lines or so. Never paste your API keys or server/.env.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Your year file, if it's about one
+      description: The lines around the one that fails is enough. Change the cities if you'd rather not share them.
+      render: text
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+  - type: input
+    id: env
+    attributes:
+      label: System
+      description: Output of `node -v`, and your OS (for example macOS 15, Ubuntu 24.04, Windows 11).
+    validations:
+      required: true

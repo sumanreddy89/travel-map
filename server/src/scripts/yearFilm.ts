@@ -1,7 +1,9 @@
-// Your year as a film, from a text file of cities. No API keys; needs the one-time map download.
+// Your year as a film, from a text file of cities. No API keys and no download: it uses the
+// small map in geo-lite/, or the full Natural Earth data when you have it.
 //
 //   npm run year -- my-year.txt                          out/year-2026-landscape.mp4
 //   npm run year -- my-year.txt --orientation portrait   out/year-2026-portrait.mp4
+//   npm run year -- my-year.txt --preview                 opens it in your browser to scrub, no render
 //
 // The file is one city per line, in order: "city | date | how you got there" (plane, train or
 // car; plane if left out), for example "Madrid | 2026-03-20 | train". Format and errors:
@@ -22,9 +24,10 @@ const fail = (msg: string): never => {
 
 const args = process.argv.slice(2);
 const file = args.find((a) => !a.startsWith("--") && args[args.indexOf(a) - 1] !== "--orientation");
+const preview = args.includes("--preview");
 const oi = args.indexOf("--orientation");
 const orientation = oi === -1 ? "landscape" : args[oi + 1];
-if (!file) fail('Usage: npm run year -- my-year.txt [--orientation portrait]\nOne city per line: "city | date | plane, train or car".');
+if (!file) fail('Usage: npm run year -- my-year.txt [--orientation portrait] [--preview]\nOne city per line: "city | date | plane, train or car".');
 if (orientation !== "landscape" && orientation !== "portrait") fail(`--orientation must be landscape or portrait, not "${orientation}"`);
 if (!fs.existsSync(file!)) fail(`Can't find ${file}.`);
 
@@ -50,7 +53,7 @@ try {
 } catch (err) {
   fail(
     `Couldn't prepare the map: ${(err as Error).message}\n` +
-      "The year film needs the one-time Natural Earth map download (no keys): see \"Cartography data\" in the README, then run `npm run doctor`."
+      "Run `npm run doctor`; it checks the map data and says how to fix it."
   );
 }
 for (const w of warnings) console.warn(`  ${w}`);
@@ -59,6 +62,13 @@ const outDir = path.join(REPO_ROOT, "out");
 fs.mkdirSync(outDir, { recursive: true });
 const propsFile = path.join(outDir, `year-${year.year}-props.json`);
 fs.writeFileSync(propsFile, JSON.stringify({ trip, mapScenes, assetBase: "data" }));
+
+if (preview) {
+  // Remotion Studio in the browser: plays and scrubs the film at once, nothing is rendered.
+  console.log(`\nOpening the preview in your browser (Remotion Studio). Pick "TripVideo" if it isn't open; Ctrl+C to stop.\nWhen it looks right: npm run year -- ${file}${orientation === "portrait" ? " --orientation portrait" : ""}`);
+  const s = spawnSync("npx", ["remotion", "studio", "src/index.ts", `--props=${propsFile}`], { cwd: REMOTION_DIR, stdio: "inherit" });
+  process.exit(s.status ?? 0);
+}
 
 const outName = `year-${year.year}-${orientation}.mp4`;
 const r = spawnSync(
