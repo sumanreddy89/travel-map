@@ -23,6 +23,8 @@ Clone to first film: under two minutes. No keys, no `.env`, no map download.
 
 ## Not fixed, worth knowing
 
+- Your own year film has no music. The demo's track is reserved for the demo (`NOTICE.md`), so it isn't added to your films.
+
 - The file path is relative to the repository folder, because npm runs scripts from there. Saving `my-year.txt` somewhere else needs a full path.
 - Car and train legs need the public OSRM server while the map is prepared. Offline (or if it times out after 8 s), those legs are drawn as a direct line instead of following the roads.
 - Not yet tried on Windows or Linux.

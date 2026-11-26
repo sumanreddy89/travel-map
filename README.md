@@ -26,6 +26,7 @@ Save it as `my-year.txt` in the repository folder, then:
 npm ci
 npm run year -- my-year.txt                          # out/year-2026-landscape.mp4
 npm run year -- my-year.txt --orientation portrait   # out/year-2026-portrait.mp4, for phones
+npm run year -- my-year.txt --preview                # watch and scrub it in your browser first, no render
 ```
 
 On a fresh clone that took under two minutes on a laptop: about 20 s to install, then 70 s for the first film, which includes a one-time download of the headless browser it renders with. Later films take about 45 s for three cities.
@@ -135,6 +136,10 @@ npm run studio   # opens Remotion Studio with the demo trip (remotion/src/demo/d
 - `data/` holds all trip content (uploads, generated audio, output videos),
   `data/geo-raw/` the optional full Natural Earth files, and `server/.env` your
   API keys - all gitignored.
+
+## Contributing
+
+Bug reports and small pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## What stays on your machine
 
