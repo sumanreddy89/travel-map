@@ -44,18 +44,22 @@ export function tripOverview(mapScenes: MapScene[]): TripOverviewData | null {
   return countries.size ? { countries: [...countries.values()], legs: [...legs.values()], stops: [...stops.values()], transit: [...transit.values()] } : null;
 }
 
-export const TripOverview: React.FC<TripOverviewData & { durationInFrames: number; variant?: "opener" | "finale" }> = ({
+// `box` draws the map at a given size instead of the full frame (the share card's map panel).
+export const TripOverview: React.FC<TripOverviewData & { durationInFrames: number; variant?: "opener" | "finale"; box?: { width: number; height: number } }> = ({
   countries,
   legs,
   stops,
   transit = [],
   durationInFrames,
   variant = "opener",
+  box,
 }) => {
   const finale = variant === "finale";
   useTerrainReady(countries.map((c) => staticFile(c.terrainRelPath)));
   const frame = useCurrentFrame();
-  const { width, height } = useVideoConfig();
+  const video = useVideoConfig();
+  const width = box?.width ?? video.width;
+  const height = box?.height ?? video.height;
   const layout = getLayout(width, height);
 
   const projection = useMemo(() => {
@@ -197,7 +201,7 @@ export const TripOverview: React.FC<TripOverviewData & { durationInFrames: numbe
         <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(11,7,4,0.85) 0%, rgba(11,7,4,0.45) 30%, rgba(11,7,4,0) 55%)" }} />
       )}
       {/* Road lines come from OpenStreetMap, whose licence needs the credit wherever they show. */}
-      {legs.some((l) => (l.routeCoords?.length ?? 0) > 1) && <OsmCredit />}
+      {legs.some((l) => (l.routeCoords?.length ?? 0) > 1) && <OsmCredit inset={box ? 14 : undefined} />}
     </AbsoluteFill>
   );
 };

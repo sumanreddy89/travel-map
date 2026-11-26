@@ -9,6 +9,7 @@ export type YearStats = {
   cities: number;
   distanceKm: number; // great-circle, summed over the legs, rounded to the nearest km
   flights: number;
+  legs: number; // journeys from one city to the next (a city listed twice in a row is not one)
   longestLeg: { from: string; to: string; km: number } | null;
 };
 
@@ -29,6 +30,7 @@ export function yearStats(stops: StatsStop[]): YearStats {
   const countries = new Set(stops.map((s) => s.country).filter((c): c is string => Boolean(c)));
   let total = 0;
   let flights = 0;
+  let legs = 0;
   let longestLeg: YearStats["longestLeg"] = null;
   for (let i = 1; i < stops.length; i++) {
     const from = stops[i - 1];
@@ -36,8 +38,25 @@ export function yearStats(stops: StatsStop[]): YearStats {
     if (cityKey(from) === cityKey(to)) continue; // listed twice in a row: not a journey
     const km = greatCircleKm(from, to);
     total += km;
+    legs++;
     if (to.mode === "plane") flights++;
     if (!longestLeg || km > longestLeg.km) longestLeg = { from: from.name, to: to.name, km: Math.round(km) };
   }
-  return { countries: countries.size, cities: cities.size, distanceKm: Math.round(total), flights, longestLeg };
+  return { countries: countries.size, cities: cities.size, distanceKm: Math.round(total), flights, legs, longestLeg };
+}
+
+const count = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
+
+/** The share card's one line: "7 cities · 3,125 km · 2 flights", or legs when nothing flew. */
+export function shareLine(stats: YearStats): string {
+  const parts = [count(stats.cities, "city", "cities")];
+  if (stats.distanceKm > 0) parts.push(`${stats.distanceKm.toLocaleString("en-GB")} km`);
+  if (stats.flights > 0) {
+    parts.push(count(stats.flights, "flight", "flights"));
+    const ground = stats.legs - stats.flights;
+    if (ground > 0) parts.push(count(ground, "by train or car", "by train or car"));
+  } else if (stats.legs > 0) {
+    parts.push(count(stats.legs, "leg", "legs"));
+  }
+  return parts.join(" · ");
 }
