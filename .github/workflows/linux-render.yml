@@ -31,6 +31,9 @@ jobs:
     runs-on: ubuntu-24.04
     container: ${{ matrix.container || null }}
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,7 +47,8 @@ jobs:
           echo "NPM_CI=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
       - name: npm run year (three cities, first run)
         id: year
-        continue-on-error: true
+        # Only the bare container may fail: its job is to show the first-run error message.
+        continue-on-error: ${{ matrix.container != '' }}
         run: |
           printf 'Lisbon | 2026-02-14\nMadrid | 2026-03-20 | plane\nBarcelona | 2026-04-02 | train\n' > my-year.txt
           start=$(date +%s)
