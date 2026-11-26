@@ -1,0 +1,75 @@
+name: Linux render
+
+# Renders a real three-city year film on Linux, exactly as the README says, and reports the
+# time for each step. Two runs: a GitHub Ubuntu runner (a typical Linux laptop) and a bare
+# Debian container (node:22-slim), which shows what a first-run user with a minimal system sees.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/linux-render.yml"
+      - "remotion/**"
+      - "server/src/scripts/yearFilm.ts"
+      - "geo-lite/**"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            container: ""
+          - name: debian-slim (node:22-slim)
+            container: node:22-slim
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.container || null }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        if: matrix.container == ''
+        with:
+          node-version: "22"
+      - name: npm ci
+        run: |
+          start=$(date +%s)
+          npm ci --no-audit --no-fund
+          echo "NPM_CI=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+      - name: npm run year (three cities, first run)
+        id: year
+        continue-on-error: true
+        run: |
+          printf 'Lisbon | 2026-02-14\nMadrid | 2026-03-20 | plane\nBarcelona | 2026-04-02 | train\n' > my-year.txt
+          start=$(date +%s)
+          set -o pipefail
+          npm run year -- my-year.txt 2>&1 | tee year.log
+          echo "YEAR=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.name }}"
+            echo "- npm ci: ${NPM_CI:-?} s"
+            if [ "${{ steps.year.outcome }}" = "success" ]; then
+              echo "- npm run year (first run, includes the headless-browser download): ${YEAR} s"
+              ls -l out/*.mp4 | awk '{print "- output: " $NF " (" $5 " bytes)"}'
+            else
+              echo "- npm run year: **failed**. Last lines a first-run user would see:"
+              echo '```'
+              grep -v 'Rendered\|Encoded' year.log | tail -25
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: steps.year.outcome == 'success'
+        with:
+          name: year-film-${{ matrix.container == '' && 'ubuntu' || 'debian-slim' }}
+          path: out/*.mp4
+          retention-days: 7
