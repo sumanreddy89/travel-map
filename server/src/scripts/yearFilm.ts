@@ -1,4 +1,5 @@
-// Your year as a film, from a text file of cities. No API keys; needs the one-time map download.
+// Your year as a film, from a text file of cities. No API keys and no download: it uses the
+// small map in geo-lite/, or the full Natural Earth data when you have it.
 //
 //   npm run year -- my-year.txt                          out/year-2026-landscape.mp4
 //   npm run year -- my-year.txt --orientation portrait   out/year-2026-portrait.mp4
@@ -50,7 +51,7 @@ try {
 } catch (err) {
   fail(
     `Couldn't prepare the map: ${(err as Error).message}\n` +
-      "The year film needs the one-time Natural Earth map download (no keys): see \"Cartography data\" in the README, then run `npm run doctor`."
+      "Run `npm run doctor`; it checks the map data and says how to fix it."
   );
 }
 for (const w of warnings) console.warn(`  ${w}`);

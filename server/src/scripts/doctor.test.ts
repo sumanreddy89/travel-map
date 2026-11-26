@@ -29,12 +29,17 @@ test("parseEnv strips quotes and ignores comments", () => {
   assert.deepEqual(parseEnv('A="1"\n# B=2\nC = 3'), { A: "1", C: "3" });
 });
 
-test("geo: points at the converter when raw data exists, else at the README", () => {
-  const rawOnly = geoChecks("/r", (p) => p.endsWith("data/geo-raw"));
-  assert.equal(rawOnly[0].ok, false);
-  assert.match(rawOnly[0].fix ?? "", /convertGeo/);
-  const nothing = geoChecks("/r", () => false);
-  assert.match(nothing[0].fix ?? "", /README/);
+test("geo: the bundled lite map is enough; the full download is an optional upgrade", () => {
+  const liteOnly = geoChecks("/r", (p) => p.endsWith("geo-lite/countries.json"));
+  assert.equal(liteOnly[0].ok, false);
+  assert.equal(liteOnly[0].required, false);
+  assert.match(liteOnly[0].fix ?? "", /README/);
+  assert.equal(report(liteOnly).ok, true);
+  const rawToo = geoChecks("/r", (p) => p.endsWith("geo-lite/countries.json") || p.endsWith("data/geo-raw"));
+  assert.match(rawToo[0].fix ?? "", /convertGeo/);
+  const noLite = geoChecks("/r", () => false);
+  assert.equal(noLite[0].required, true);
+  assert.match(noLite[0].fix ?? "", /git checkout -- geo-lite/);
   assert.equal(geoChecks("/r", () => true)[0].ok, true);
 });
 

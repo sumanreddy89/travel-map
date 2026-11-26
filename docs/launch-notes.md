@@ -19,11 +19,11 @@ The hook is the year film: **paste your cities, get your year film.** Each post 
 
 > End of the year is when people post their travel recaps, so I built the version I wanted: you write the cities you went to, one per line ("Madrid | 2026-03-20 | train"), and TravelMap renders a film. It counts up your countries, cities, kilometres and flights, flies the route city by city with a plane, train or car on each leg, and ends on a card you can share. Portrait for phones, landscape for everything else.
 >
-> It's Remotion, Natural Earth terrain and OpenStreetMap routes, with no API keys: cities come from a bundled public-domain list, so nothing is looked up online, and the sample year renders with the network blocked. `npm run year -- my-year.txt` makes your own after a one-time map download.
+> It's Remotion, Natural Earth terrain and OpenStreetMap routes, with no API keys: cities come from a bundled public-domain list, so nothing is looked up online, and the sample year renders with the network blocked. `npm run year -- my-year.txt` makes your own; a small map is bundled, so there's nothing else to download.
 >
 > Sample (48 s): https://github.com/sumanreddy89/travel-map/releases/download/demo-film-v5/demo-year-portrait.mp4
 >
-> It also does single trips with your own photos at each stop. Setup is still Node plus a ~600 MB map download, so I'm testing whether a hosted version is worth building (paste your cities, get the MP4 by email; 3 free, then about €3 a film). It doesn't exist yet; there's a waitlist if you'd use it: https://sumanreddy89.github.io/travel-map/hosted/
+> It also does single trips with your own photos at each stop. Running it still means installing Node and using a terminal, so I'm testing whether a hosted version is worth building (paste your cities, get the MP4 by email; 3 free, then about €3 a film). It doesn't exist yet; there's a waitlist if you'd use it: https://sumanreddy89.github.io/travel-map/hosted/
 >
 > Code is MIT. Happy to answer anything about the rendering.
 
@@ -46,7 +46,7 @@ Check the subreddit's self-promotion rules on the day. r/travel and most travel 
 >
 > Code (MIT): https://github.com/sumanreddy89/travel-map
 >
-> Running it yourself needs Node and a map download, so I'm testing whether a hosted version is worth building: paste your cities, get the MP4. Not live, nothing is charged; there's a waitlist if you'd use it: https://sumanreddy89.github.io/travel-map/hosted/
+> Running it yourself needs Node and a terminal, so I'm testing whether a hosted version is worth building: paste your cities, get the MP4. Not live, nothing is charged; there's a waitlist if you'd use it: https://sumanreddy89.github.io/travel-map/hosted/
 >
 > Which cities would be on yours?
 

@@ -10,19 +10,9 @@
 |---|---|---|
 | ![The opener: 6 countries, 7 cities, 3,125 km, 2 flights](docs/demo/year-opener.jpg) | ![The whole year on one map](docs/demo/year-finale.jpg) | <img src="docs/demo/year-share-portrait.jpg" alt="The share card in portrait" width="140"> |
 
-### Try it: no keys, no map download
+### Your own year: no keys, no map download
 
-```bash
-npm ci
-npm run demo:prepare                                                   # one-time headless browser download
-node remotion/scripts/demo.mjs render --trip year --orientation portrait   # out/demo-year-portrait.mp4
-```
-
-Leave out `--orientation portrait` for landscape. The sample year is checked in and renders with the network blocked.
-
-### Your own year: no keys
-
-Write one city per line, in the order you went: `city | date | how you got there` (plane, train or car; plane if left out). Add a country when a name is ambiguous (`Valencia, ES`).
+You need [Node.js](https://nodejs.org/) 20 or newer. Write one city per line in a text file, in the order you went: `city | date | how you got there` (plane, train or car; plane if left out). Add a country when a name is ambiguous (`Valencia, ES`).
 
 ```text
 Lisbon | 2026-02-14
@@ -30,11 +20,22 @@ Madrid | 2026-03-20 | plane
 Barcelona | 2026-04-02 | train
 ```
 
+Save it as `my-year.txt` in the repository folder, then:
+
 ```bash
-npm run year -- my-year.txt --orientation portrait   # out/year-2026-portrait.mp4
+npm ci
+npm run year -- my-year.txt                          # out/year-2026-landscape.mp4
+npm run year -- my-year.txt --orientation portrait   # out/year-2026-portrait.mp4, for phones
 ```
 
-Cities come from a bundled list of about 1,250 major cities, English names included ([Natural Earth](https://www.naturalearthdata.com/), public domain), so nothing is looked up online. A line it can't read is reported with its line number and what to change. The map needs the one-time [cartography download](#cartography-data-one-time-not-in-the-repo---600mb-raw) (no keys); road routes for car and train legs come from the public OSRM server while the map is prepared. There's also an API: `POST /api/trips/year` with `{"text": "..."}`.
+On a fresh clone that took under two minutes on a laptop: about 20 s to install, then 70 s for the first film, which includes a one-time download of the headless browser it renders with. Later films take about 45 s for three cities.
+
+- **No API keys.** The year film has no narration, so nothing paid is called.
+- **No map download.** A small map is bundled ([geo-lite](geo-lite/README.md)). The optional [full map data](#full-map-data-optional-600mb) only makes the terrain sharper for small countries.
+- **What goes online:** installing packages, the browser download, and road routes for car and train legs from the public OSRM server. The film itself renders with the network blocked.
+- **Cities** come from a bundled list of about 1,250 major cities, English names included ([Natural Earth](https://www.naturalearthdata.com/), public domain), so nothing is looked up online. A line it can't read is reported with its line number and what to change.
+
+There's also an API: `POST /api/trips/year` with `{"text": "..."}`. To render the sample year without writing a file: `node remotion/scripts/demo.mjs render --trip year` after `npm run demo:prepare`.
 
 **Don't want to set anything up?** A hosted version is being considered. [Join the waitlist](https://sumanreddy89.github.io/travel-map/hosted/) if you'd use it.
 
@@ -54,7 +55,7 @@ Photo, map and music sources: [docs/demo/ASSETS.md](docs/demo/ASSETS.md). More: 
 
 ## Full workflow: your own trips
 
-Making films of your own trips needs API keys (narration and voiceover use paid services) and a one-time ~600MB map-data download, as below. What leaves your machine is listed under [What stays on your machine](#what-stays-on-your-machine).
+Trip films are different from the year film: they write and speak a narration line for every stop, so they need two API keys (Anthropic for the words, ElevenLabs for the voice) and ffmpeg for your photos and videos. The map works out of the box, like the year film. What leaves your machine is listed under [What stays on your machine](#what-stays-on-your-machine).
 
 ### Setup
 
@@ -77,10 +78,9 @@ ELEVENLABS_VOICE_ID=...   # must be a voice available to your ElevenLabs plan/ac
 PORT=4000
 ```
 
-### Cartography data (one-time, not in the repo - ~600MB raw)
+### Full map data (optional, ~600MB)
 
-Map scenes need Natural Earth boundary + shaded-relief data. It's gitignored
-rather than committed, so fetch and convert it once:
+Every film works with the bundled lite map. For sharper terrain on small countries, fetch the full Natural Earth boundary and shaded-relief data once (it's gitignored) and convert it:
 
 ```bash
 mkdir -p data/geo-raw && cd data/geo-raw
@@ -93,7 +93,7 @@ unzip -q relief.zip -d relief_hr
 cd ../../server && npx tsx src/scripts/convertGeo.ts
 ```
 
-That last command writes `remotion/public/geo/countries.json` and `admin1.json`.
+That last command writes `remotion/public/geo/countries.json` and `admin1.json`. TravelMap switches to the full data as soon as all of it is in place.
 
 ### Check your setup
 
@@ -101,7 +101,7 @@ That last command writes `remotion/public/geo/countries.json` and `admin1.json`.
 npm run doctor
 ```
 
-It checks Node, ffmpeg and ffprobe, your keys in `server/.env` (without printing them) and the converted map data, and says how to fix anything missing. It doesn't call any paid service.
+It checks Node, ffmpeg and ffprobe, your keys in `server/.env` (without printing them) and which map data you're using, and says how to fix anything missing. It doesn't call any paid service.
 Per-country terrain textures (`remotion/public/terrain/*.png`) generate and
 cache automatically the first time a trip visits that country.
 
@@ -133,7 +133,7 @@ npm run studio   # opens Remotion Studio with the demo trip (remotion/src/demo/d
 - The photo/video panel shown beside the map during transitions can be
   toggled off via `SHOW_MEDIA_PANEL_IN_MAP_SCENES` in `remotion/src/config.ts`.
 - `data/` holds all trip content (uploads, generated audio, output videos),
-  `data/geo-raw/` the raw Natural Earth source files, and `server/.env` your
+  `data/geo-raw/` the optional full Natural Earth files, and `server/.env` your
   API keys - all gitignored.
 
 ## What stays on your machine
