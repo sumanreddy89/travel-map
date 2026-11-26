@@ -6,7 +6,7 @@
 
 | Step | Time |
 |---|---|
-| `git clone` (repository about 50 MB with the bundled map) | see below |
+| `git clone` from GitHub (33 MB) | 6 s |
 | `npm ci`, empty npm cache | 19 s |
 | First `npm run year -- my-year.txt` (includes the one-time headless browser download) | 70 s |
 | Later runs, 3 cities, 26 s film | 43 s |
