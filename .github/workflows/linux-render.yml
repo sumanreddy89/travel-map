@@ -27,6 +27,9 @@ jobs:
             container: ""
           - name: debian-slim (node:22-slim)
             container: node:22-slim
+          - name: debian-slim + README libraries
+            container: node:22-slim
+            readme_libs: true
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     container: ${{ matrix.container || null }}
@@ -40,6 +43,13 @@ jobs:
         if: matrix.container == ''
         with:
           node-version: "22"
+      - name: The README's Linux libraries
+        if: matrix.readme_libs
+        run: |
+          apt-get update -qq
+          cmd=$(grep -o 'sudo apt install -y lib[^`]*' README.md | head -1 | sed 's/^sudo //')
+          echo "$cmd"
+          DEBIAN_FRONTEND=noninteractive $cmd
       - name: npm ci
         run: |
           start=$(date +%s)
@@ -48,7 +58,7 @@ jobs:
       - name: npm run year (three cities, first run)
         id: year
         # Only the bare container may fail: its job is to show the first-run error message.
-        continue-on-error: ${{ matrix.container != '' }}
+        continue-on-error: ${{ matrix.container != '' && !matrix.readme_libs }}
         run: |
           printf 'Lisbon | 2026-02-14\nMadrid | 2026-03-20 | plane\nBarcelona | 2026-04-02 | train\n' > my-year.txt
           start=$(date +%s)
@@ -74,6 +84,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: steps.year.outcome == 'success'
         with:
-          name: year-film-${{ matrix.container == '' && 'ubuntu' || 'debian-slim' }}
+          name: year-film-${{ matrix.container == '' && 'ubuntu' || (matrix.readme_libs && 'debian-readme-libs' || 'debian-slim') }}
           path: out/*.mp4
           retention-days: 7

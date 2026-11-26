@@ -31,6 +31,10 @@ npm run year -- my-year.txt --preview                # watch and scrub it in you
 
 On a fresh clone that took under two minutes on a laptop: about 20 s to install, then 70 s for the first film, which includes a one-time download of the headless browser it renders with. Later films take about 45 s for three cities.
 
+- **On Linux**, the headless browser needs some system libraries that desktop installs usually have and minimal ones (servers, containers) don't. If the first run says a library is missing, on Debian or Ubuntu run this once:
+  ```bash
+  sudo apt install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+  ```
 - **No API keys.** The year film has no narration, so nothing paid is called.
 - **No map download.** A small map is bundled ([geo-lite](geo-lite/README.md)). The optional [full map data](#full-map-data-optional-600mb) only makes the terrain sharper for small countries.
 - **What goes online:** installing packages, the browser download, and road routes for car and train legs from the public OSRM server. The film itself renders with the network blocked.

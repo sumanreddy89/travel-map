@@ -199,4 +199,17 @@ async function stills() {
 const commands = { prepare, render, stills };
 const cmd = process.argv[2];
 if (!commands[cmd]) fail(`Usage: node remotion/scripts/demo.mjs ${Object.keys(commands).join("|")}`);
-commands[cmd]().catch((err) => fail(`demo:${cmd} failed: ${err?.message ?? err}`));
+// Linux without the headless browser's system libraries fails deep inside Chrome; say what to do.
+const LINUX_LIBS = "sudo apt install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2";
+function explain(err) {
+  const msg = String(err?.message ?? err);
+  const what = CUSTOM_PROPS ? "Rendering your film failed" : `demo:${cmd} failed`;
+  const lib = msg.match(/error while loading shared libraries: ([^:\s]+)/);
+  if (lib) {
+    return `${what}: the headless browser can't start because your system is missing ${lib[1]} (and probably a few more libraries).\n` +
+      `On Debian or Ubuntu, install them once and run the same command again:\n  ${LINUX_LIBS}\n` +
+      "Other systems: https://www.remotion.dev/docs/miscellaneous/linux-dependencies";
+  }
+  return `${what}: ${msg}`;
+}
+commands[cmd]().catch((err) => fail(explain(err)));
