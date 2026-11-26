@@ -1,8 +1,9 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Freeze, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { fontFamily } from "../lib/fonts";
 import { getLayout } from "../lib/layout";
 import { MOTION, countUp } from "../lib/motion";
-import type { YearStats } from "../lib/yearStats";
+import { shareLine, type YearStats } from "../lib/yearStats";
+import { TripOverview, type TripOverviewData } from "./TripOverview";
 
 // The two cards of a "Year in travel" film: the opener counts the year's numbers up; the share
 // card ends the film with the same numbers and the TravelMap page link.
@@ -73,7 +74,17 @@ export const YearOpener: React.FC<{ year: number; stats: YearStats }> = ({ year,
   );
 };
 
-export const ShareCard: React.FC<{ year: number; stats: YearStats; stops: string[] }> = ({ year, stats, stops }) => {
+// The year's whole route, frozen where the finale settles, in a box beside (landscape) or above
+// (portrait) the text. Same map, same data as the film; nothing is fetched.
+const RouteMap: React.FC<{ overview: TripOverviewData; width: number; height: number }> = ({ overview, width, height }) => (
+  <div style={{ position: "relative", width, height, borderRadius: 24, overflow: "hidden", boxShadow: "0 0 0 2px rgba(255,210,74,0.35)", flexShrink: 0 }}>
+    <Freeze frame={MOTION.finale.easeOutFrames + 1}>
+      <TripOverview {...overview} durationInFrames={MOTION.finale.easeOutFrames + 2} variant="finale" box={{ width, height }} />
+    </Freeze>
+  </div>
+);
+
+export const ShareCard: React.FC<{ year: number; stats: YearStats; stops: string[]; overview?: TripOverviewData | null }> = ({ year, stats, stops, overview }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const layout = getLayout(width, height);
@@ -81,17 +92,26 @@ export const ShareCard: React.FC<{ year: number; stats: YearStats; stops: string
   const fade = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   // A long year lists its first and last few cities, so the line always fits.
   const route = stops.length > 8 ? [...stops.slice(0, 4), "…", ...stops.slice(-3)] : stops;
+  const text = (
+    <div style={{ textAlign: layout.portrait || !overview ? "center" : "left", minWidth: 0 }}>
+      <div style={{ color: "white", fontWeight: 700, fontSize: (overview && layout.portrait ? 62 : 84) * t, letterSpacing: 3 * t, textTransform: "uppercase", lineHeight: 1.1 }}>My {year} in travel</div>
+      <div style={{ color: "white", fontSize: (layout.portrait ? 32 : 40) * t, marginTop: 24 * t, lineHeight: 1.3 }}>{shareLine(stats)}</div>
+      <div style={{ color: GOLD, fontSize: 30 * t, marginTop: 20 * t, letterSpacing: 1 * t, lineHeight: 1.4 }}>{route.join("  ·  ")}</div>
+      {!overview && <Grid stats={stats} frame={null} t={t * 0.8} portrait={layout.portrait} />}
+      <Longest stats={stats} t={t} opacity={1} />
+      <div style={{ color: MUTED, fontSize: 28 * t, marginTop: (layout.portrait ? 32 : 48) * t, letterSpacing: 1 * t }}>
+        Made with TravelMap · <span style={{ color: "white" }}>{TRAVELMAP_PAGE}</span>
+      </div>
+    </div>
+  );
+  const mapW = layout.portrait ? width - 2 * layout.safe.left : Math.round(width * 0.46);
+  const mapH = layout.portrait ? Math.round(height * 0.3) : Math.round(height * 0.74);
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0704", fontFamily, alignItems: "center", justifyContent: "center", padding: `0 ${layout.safe.left}px` }}>
       <Backdrop />
-      <div style={{ textAlign: "center", position: "relative", opacity: fade }}>
-        <div style={{ color: "white", fontWeight: 700, fontSize: 84 * t, letterSpacing: 3 * t, textTransform: "uppercase", lineHeight: 1.1 }}>My {year} in travel</div>
-        <div style={{ color: GOLD, fontSize: 30 * t, marginTop: 20 * t, letterSpacing: 1 * t, lineHeight: 1.4 }}>{route.join("  ·  ")}</div>
-        <Grid stats={stats} frame={null} t={t * 0.8} portrait={layout.portrait} />
-        <Longest stats={stats} t={t} opacity={1} />
-        <div style={{ color: MUTED, fontSize: 28 * t, marginTop: 64 * t, letterSpacing: 1 * t }}>
-          Made with TravelMap · <span style={{ color: "white" }}>{TRAVELMAP_PAGE}</span>
-        </div>
+      <div style={{ position: "relative", opacity: fade, display: "flex", flexDirection: layout.portrait ? "column" : "row", alignItems: "center", gap: (layout.portrait ? 36 : 72) * t }}>
+        {overview && <RouteMap overview={overview} width={mapW} height={mapH} />}
+        {text}
       </div>
     </AbsoluteFill>
   );

@@ -169,7 +169,7 @@ export const TripVideo: React.FC<TripVideoProps> = ({ trip, mapScenes, assetBase
     if (item.kind === "share" && stats && trip.yearInTravel) {
       return (
         <Sequence key={i} from={from} durationInFrames={item.durationInFrames} name="Share card">
-          <ShareCard year={trip.yearInTravel.year} stats={stats} stops={trip.stops.map((s) => s.name)} />
+          <ShareCard year={trip.yearInTravel.year} stats={stats} stops={trip.stops.map((s) => s.name)} overview={overview} />
         </Sequence>
       );
     }

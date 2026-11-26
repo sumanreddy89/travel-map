@@ -40,15 +40,16 @@ export const Credit: React.FC = () => {
 
 // Required attribution, not the removable credit: road routes come from OSRM, which is built on
 // OpenStreetMap data (ODbL). Shown on any map scene that draws one, whatever showWatermark says.
-export const OsmCredit: React.FC = () => {
+// `inset` places it inside a smaller panel (the share card's map) instead of the frame's safe margins.
+export const OsmCredit: React.FC<{ inset?: number }> = ({ inset }) => {
   const { width, height } = useVideoConfig();
   const layout = getLayout(width, height);
   return (
     <div
       style={{
         position: "absolute",
-        bottom: layout.safe.bottom,
-        ...(layout.portrait ? { left: layout.safe.left } : { right: layout.safe.right }),
+        bottom: inset ?? layout.safe.bottom,
+        ...(inset !== undefined ? { right: inset } : layout.portrait ? { left: layout.safe.left } : { right: layout.safe.right }),
         color: "rgba(246, 234, 212, 0.75)",
         fontFamily,
         fontWeight: 400,

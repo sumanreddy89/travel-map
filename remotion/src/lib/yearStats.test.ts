@@ -1,7 +1,7 @@
 // Run: npm test (from the repo root)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { greatCircleKm, yearStats, type StatsStop } from "./yearStats";
+import { greatCircleKm, shareLine, yearStats, type StatsStop } from "./yearStats";
 
 const LIS: StatsStop = { name: "Lisbon", lat: 38.7223, lng: -9.1393, country: "Portugal" };
 const MAD: StatsStop = { name: "Madrid", lat: 40.4168, lng: -3.7038, country: "Spain" };
@@ -26,8 +26,8 @@ test("a normal year: countries, cities, rounded total, flights and the longest l
 });
 
 test("one city: nothing travelled", () => {
-  assert.deepEqual(yearStats([LIS]), { countries: 1, cities: 1, distanceKm: 0, flights: 0, longestLeg: null });
-  assert.deepEqual(yearStats([]), { countries: 0, cities: 0, distanceKm: 0, flights: 0, longestLeg: null });
+  assert.deepEqual(yearStats([LIS]), { countries: 1, cities: 1, distanceKm: 0, flights: 0, legs: 0, longestLeg: null });
+  assert.deepEqual(yearStats([]), { countries: 0, cities: 0, distanceKm: 0, flights: 0, legs: 0, longestLeg: null });
 });
 
 test("a repeated city counts once as a city but every trip to it counts as distance", () => {
@@ -56,4 +56,17 @@ test("same name in two countries is two cities; a missing country isn't counted"
   const s = yearStats([{ name: "Valencia", lat: 39.47, lng: -0.38, country: "Spain" }, { name: "Valencia", lat: 10.16, lng: -68.0, country: "Venezuela", mode: "plane" }, { name: "Nowhere", lat: 0, lng: 0 }]);
   assert.equal(s.cities, 3);
   assert.equal(s.countries, 2);
+});
+
+test("share line: cities, distance, flights and ground legs, with plurals", () => {
+  const s = yearStats([LIS, { ...MAD, mode: "plane" }, { ...BCN, mode: "train" }, { ...NYC, mode: "plane" }]);
+  assert.equal(s.legs, 3);
+  assert.match(shareLine(s), /^4 cities · [\d,]+ km · 2 flights · 1 by train or car$/);
+  assert.equal(shareLine({ ...s, flights: 0, legs: 1, cities: 2, distanceKm: 505 }), "2 cities · 505 km · 1 leg");
+  assert.equal(shareLine(yearStats([LIS])), "1 city");
+  assert.equal(shareLine({ ...s, cities: 12, distanceKm: 12345, flights: 1, legs: 1 }), "12 cities · 12,345 km · 1 flight");
+});
+
+test("the same city twice in a row is not a leg in the share line either", () => {
+  assert.equal(yearStats([MAD, { ...MAD, mode: "plane" }, { ...BCN, mode: "train" }]).legs, 1);
 });
