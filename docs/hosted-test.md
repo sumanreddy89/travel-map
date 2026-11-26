@@ -6,11 +6,13 @@ A landing page (`site/hosted/`, published to GitHub Pages at https://sumanreddy8
 
 ## The gate (written before posting, 25 Nov 2026)
 
-Counted over **3 weeks from the first post**, in one or two places:
+Counted over **3 weeks from the first post** (the Reel), across the posts in `docs/launch-notes.md`, in that order:
 
-- **Pass:** 10 or more people join the waitlist or click "I'd pay for this".
+- **Pass:** 10 or more people ask for a film, by joining the waitlist or clicking "I'd pay for this" (either button counts; a person counts once).
 - **Fail:** fewer than 3. TravelMap stays a free portfolio repo; nothing more is built.
 - **In between (3 to 9):** treat as a fail for building, but note what people said they'd render.
+
+Revised 26 Nov, before any post: the wording now matches `launch-notes.md` and the test runs across the posts listed there; the thresholds are unchanged.
 
 A person counts once: someone who does both buttons, or the same email twice, is one. My own test visits and submissions don't count (submit one test entry each, then delete it in Tally).
 
